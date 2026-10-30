@@ -154,7 +154,7 @@ function parsePoint(t, fileName) {
   (sec['關聯'] || []).forEach(l => { const r = l.match(/^\s*-\s*(.*?)（id:\s*([^）]+)）(?:［([^］]*)］)?[:：]?\s*(.*)$/); if (r) rels.push({ name: r[1].trim(), id: r[2].trim(), type: (r[3] || '有關').trim(), note: r[4].trim() }); });
   return { meta, name: name || fileName.replace(/\.md$/, ''), desc: txt('_'), why: txt('為什麼拆成這個點'), quote: txt('原文出處').split('\n').map(l => l.replace(/^>\s?/, '')).join('\n').trim(), mine: txt('我的想法'), rels };
 }
-async function writeFile(dir, name, text) { const fh = await dir.getFileHandle(name, { create: true }); const w = await fh.createWritable(); await w.write(text); await w.close(); }
+async function writeFile(dir, name, text) { if (window.knHist) await knHist(dir, name, text); const fh = await dir.getFileHandle(name, { create: true }); const w = await fh.createWritable(); await w.write(text); await w.close(); }
 async function exists(dir, name, kind) { try { kind === 'dir' ? await dir.getDirectoryHandle(name) : await dir.getFileHandle(name); return true; } catch (e) { return false; } }
 async function uniqueName(dir, base, ext, kind) { let n = base + ext, i = 2; while (await exists(dir, n, kind)) n = `${base} (${i++})${ext}`; return n; }
 
@@ -406,7 +406,7 @@ ${a.text.trim()}
 >>>`).join('\n\n')}`;
 }
 function step2() {
-  const prompt = buildPrompt();
+  const prompt = window.knPromptExtra ? knPromptExtra(buildPrompt()) : buildPrompt();
   openPane('交給 AI 拆' + (job.total > 1 ? `（第 ${job.bi + 1}／${job.total} 次）` : '') + '：' + job.arts.map(a => a.title).join('、'), `
    <div class="row"><button class="go" id="copy">複製給 AI 的內容</button><button class="go sub" id="back">← 待拆</button><span class="note">${prompt.length} 字</span></div>
    <textarea id="ans" rows="12" placeholder="貼上 AI 的回答"></textarea>
@@ -422,7 +422,9 @@ function step2() {
   const go = dir => { const r = parseAnswer(ans.value); if (!r) return; job.r = r; if (dir) saveJob(); else step3(); };
   pbody.querySelector('#review').onclick = () => go(false);
   pbody.querySelector('#direct').onclick = () => go(true);
+  if (window.aiSocket) aiSocket(prompt, ans, () => go(false));
 }
+window.KN = { h, toast, qtip, openPane, closePane, pbody, pane, step2, load, writeFile, realPts, mdHtml, markQuote, RTYPES, get HL() { return HL; }, get root() { return root; } }; // 給 ai.js、layer2.js 用
 function parseAnswer(t, quiet) {
   const say = quiet ? () => {} : toast;
   t = (t || '').trim(); if (!t) { say('還沒有貼上 AI 的回答'); return null; }

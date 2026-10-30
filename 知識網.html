@@ -90,6 +90,7 @@ const SV=store.get('settings',{});
 const st=Object.assign(JSON.parse(JSON.stringify(DEF)),SV);
 st.lines={norm:{...DEF.lines.norm,...(SV.lines?.norm||{})},sel:{...DEF.lines.sel,...(SV.lines?.sel||{})}};
 const save=()=>store.set('settings',st);
+const KNX={label:p=>p.name,fs:1,lw:1,la:1,dash:[],lineCol:null,dmp:.6,ms:1000}; // 編輯台（edit.js）會改這些
 const view={z:1,cx:0,cy:0,sel:null};
 const PAL=['#6EA8FF','#FF8FB1','#5FE0C1','#FFC46B','#C9A2FF','#8FD3FF','#F7A072'];
 const TEX=['band','swirl','moon','spots','shade'];
@@ -166,7 +167,7 @@ function tick(){simA+=(simT-simA)*.0228;const a=simA,C=90,g=new Map();
  for(const n of AC){const gx=Math.floor(n.mx/C),gy=Math.floor(n.my/C);
   for(let i=-1;i<=1;i++)for(let j=-1;j<=1;j++){const c=g.get((gx+i)*65536+gy+j);if(!c)continue;
    for(const m of c){if(m===n)continue;let dx=m.mx-n.mx,dy=m.my-n.my,l2=dx*dx+dy*dy;if(l2>C*C)continue;if(l2<1){dx=Math.random()-.5;dy=Math.random()-.5;l2=1}const w=-30*a/l2;n.mvx+=dx*w;n.mvy+=dy*w}}}
- for(const n of AC){if(n===dragN){n.mx=dragW[0];n.my=dragW[1];n.mvx=n.mvy=0;continue}const sb=TP[n.t].subs[n.sub];n.mvx-=(n.mx-sb.cx)*.03*a;n.mvy-=(n.my-sb.cy)*.03*a;n.mx+=n.mvx*=.6;n.my+=n.mvy*=.6}}
+ for(const n of AC){if(n===dragN){n.mx=dragW[0];n.my=dragW[1];n.mvx=n.mvy=0;continue}const sb=TP[n.t].subs[n.sub];n.mvx-=(n.mx-sb.cx)*.03*a;n.mvy-=(n.my-sb.cy)*.03*a;n.mx+=n.mvx*=KNX.dmp;n.my+=n.mvy*=KNX.dmp}}
 const mm=()=>Math.min(W,H),extR=T=>T.mext*base*view.z/mm();
 const subA=T=>sm(.38,.5,extR(T)),ptA=T=>sm(.9,1.3,extR(T)),nmA=T=>sm(1.2,1.6,extR(T));
 
@@ -177,7 +178,7 @@ const ttOf=T=>sm(.16,.26,T.r0*base*view.z/Math.min(W,H));
 function starHome(p){const T=TP[p.t],tt=ttOf(T);return[T.x+p.pk.x+(p.bloom.x-p.pk.x)*tt,T.y+p.pk.y+(p.bloom.y-p.pk.y)*tt]}
 function starTarget(p){if(dragS){if(p===dragS.p)return[dragS.wx,dragS.wy];const w=dragS.w.get(p);if(w){const[x,y]=starHome(p);return[x+dragS.ox*w,y+dragS.oy*w]}}return starHome(p)}
 function stepStar(){let act=false;const px=base*view.z;
- for(const p of S){const[tx,ty]=starTarget(p);p.svx=(p.svx+(tx-p.sx)*.05)*.6;p.svy=(p.svy+(ty-p.sy)*.05)*.6;p.sx+=p.svx;p.sy+=p.svy;
+ for(const p of S){const[tx,ty]=starTarget(p);p.svx=(p.svx+(tx-p.sx)*.05)*KNX.dmp;p.svy=(p.svy+(ty-p.sy)*.05)*KNX.dmp;p.sx+=p.svx;p.sy+=p.svy;
   if((Math.abs(p.svx)+Math.abs(p.svy))*px>.04||(Math.abs(tx-p.sx)+Math.abs(ty-p.sy))*px>.08)act=true;else{p.sx=tx;p.sy=ty;p.svx=p.svy=0}}
  return act}
 function startStarDrag(p){const T=TP[p.t],[hx,hy]=starHome(p),sg=1.6*1.8*T.r0*Math.sqrt(Math.PI/T.pts.length),w=new Map();
@@ -215,7 +216,7 @@ function drawStar(){const sel=view.sel,wc=FIT.star.wc;
  ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);ctx.drawImage(bgSpr(),0,0,W,H);
  const spread=Math.max(0,...TP.map(ttOf)),zb=1+(view.z-1)*.12,s2=base*zb,bx=W/2+(-BW/2-(view.cx-wc.x)*.25)*s2,by=H/2+(-BH/2-(view.cy-wc.y)*.25)*s2;
  ctx.globalAlpha=.5*(1-.5*spread);ctx.drawImage(bandSpr(),bx,by,BW*s2,BH*s2);ctx.globalAlpha=1;
- if(sel){const[x0,y0]=toS(...pos(sel));ctx.strokeStyle=`rgba(${rgbOf(st.starC)},.6)`;ctx.lineWidth=1;relOf(sel).forEach(r=>{const[x,y]=toS(...pos(r.p));ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x,y);ctx.stroke()})}
+ if(sel){const[x0,y0]=toS(...pos(sel));ctx.strokeStyle=`rgba(${rgbOf(st.starC)},.6)`;ctx.lineWidth=KNX.lw;ctx.setLineDash(KNX.dash);relOf(sel).forEach(r=>{const[x,y]=toS(...pos(r.p));if(KNX.lineCol)ctx.strokeStyle=KNX.lineCol(r);ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x,y);ctx.stroke()});ctx.setLineDash([])}
  const k=Math.sqrt(view.z)*.75,hi=[];ctx.fillStyle=st.starC;
  for(const p of S){const[x,y]=toS(...pos(p));if(x<-40||y<-40||x>W+40||y>H+40)continue;
   const T=TP[p.t],u=ttOf(T);let a=Math.max((.45+.55*p.lum)*(1-u)+u,T.boost>1.6?.85:0)*(1-.65*dim*(1-p.h));
@@ -232,12 +233,13 @@ function drawMin(){const lt=st.bg==='light',F=hover||view.sel,L=st.lines,fg=lt?'
  const A=TP.map(T=>({s:subA(T),p:ptA(T),n:nmA(T)}));
  const line=(a,b)=>{const[x1,y1]=toS(...a),[x2,y2]=toS(...b);ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke()};
  // 平常的關聯線（放大到知識點那層才出現）
- ctx.lineWidth=.8;ctx.strokeStyle=lt?'rgba(69,72,78,.28)':'rgba(255,255,255,.22)';
- S.forEach(p=>(adj[p.id]||[]).forEach(r=>{if(p.id>r.p.id||!(r.x?L.norm.x:L.norm.in))return;const a=r.x?Math.max(A[p.t].p,A[r.p.t].p):A[p.t].p;if(a<.02)return;ctx.globalAlpha=a*(1-.75*dim);line(pos(p),pos(r.p))}));
+ const lc0=lt?'rgba(69,72,78,.28)':'rgba(255,255,255,.22)';ctx.lineWidth=.8*KNX.lw;ctx.setLineDash(KNX.dash);ctx.strokeStyle=lc0;
+ S.forEach(p=>(adj[p.id]||[]).forEach(r=>{if(p.id>r.p.id||!(r.x?L.norm.x:L.norm.in))return;const a=r.x?Math.max(A[p.t].p,A[r.p.t].p):A[p.t].p;if(a<.02)return;ctx.globalAlpha=Math.min(1,a*(1-.75*dim)*KNX.la);ctx.strokeStyle=KNX.lineCol?KNX.lineCol(r):lc0;line(pos(p),pos(r.p))}));
  // 滑過／選取的點：它的線用強調色
- if(F&&dim>0){ctx.globalAlpha=dim;ctx.strokeStyle=st.accent;ctx.lineWidth=1.3;
+ if(F&&dim>0){ctx.globalAlpha=dim;ctx.strokeStyle=st.accent;ctx.lineWidth=1.3*KNX.lw;
   if(L.sel.s){const sb=TP[F.t].subs[F.sub];line(pos(F),[sb.cx,sb.cy]);line([sb.cx,sb.cy],[TP[F.t].mx,TP[F.t].my])}
   relOf(F).forEach(r=>line(pos(F),pos(r.p)))}
+ ctx.setLineDash([]);
  // 知識點：全貌時是淡淡的小點雲，放大後變成清楚的點
  for(const p of S){const[x,y]=toS(...pos(p));if(x<-20||y<-20||x>W+20||y>H+20)continue;const a=A[p.t].p;
   ctx.fillStyle=p.g>.01?mix(lt?'#45484E':'#C9CCD1',st.accent,Math.min(1,p.g*1.3)):pointColor(p,lt);
@@ -245,12 +247,12 @@ function drawMin(){const lt=st.bg==='light',F=hover||view.sel,L=st.lines,fg=lt?'
  // 字（加一圈底色外框，壓在點上也讀得清楚）
  const txt=(str,x,y,font,al)=>{if(al<.02)return;ctx.globalAlpha=al;ctx.font=font;ctx.lineWidth=3;ctx.strokeStyle=bgc;ctx.strokeText(str,x,y);ctx.fillStyle=fg;ctx.fillText(str,x,y)};
  ctx.textAlign='center';ctx.lineJoin='round';const dk=1-.6*dim;
- TP.forEach((T,ti)=>{const a=A[ti],[x,y]=toS(T.mx,T.my);txt(T.name,x,y+5,'600 14px system-ui',(1-a.s)*dk);
-  if(a.s>.02){const[tx,ty]=toS(T.mx,T.my-T.mext+8);ctx.globalAlpha=a.s*.7*dk;ctx.font='12px system-ui';ctx.fillStyle=lt?'#888':'#888';ctx.fillText(T.name,tx,ty);
-   T.subs.forEach(s=>{if(!s.name)return;const[sx,sy]=toS(s.cx,s.cy-s.rS-4);txt(s.name,sx,sy,'600 13px system-ui',a.s*(1-.35*a.p)*dk)})}});
- for(const p of S){if(!p.name||p===F)continue;const al=Math.max(A[p.t].n*(1-.8*dim*(1-p.h)),p.h*dim*.9);if(al<.02)continue;const[x,y]=toS(...pos(p));if(x<-80||x>W+80||y<-20||y>H+20)continue;txt(p.name,x,y+15,'11px system-ui',al)}
- if(F&&F.name){const[x,y]=toS(...pos(F));txt(F.name,x,y+17,'600 12px system-ui',1)}
- if(view.sel&&F===view.sel){ctx.globalAlpha=1;ctx.font='12px system-ui';const[x0,y0]=toS(...pos(F));relOf(F).forEach(r=>{const[x,y]=toS(...pos(r.p)),mx=(x0+x)/2,my=(y0+y)/2,tw=ctx.measureText(r.note).width;ctx.fillStyle=lt?'#fffd':'#000d';ctx.fillRect(mx-tw/2-4,my-11,tw+8,16);ctx.fillStyle=fg;ctx.fillText(r.note,mx,my+1)})}
+ TP.forEach((T,ti)=>{const a=A[ti],[x,y]=toS(T.mx,T.my);txt(T.name,x,y+5,`600 ${14*KNX.fs}px system-ui`,(1-a.s)*dk);
+  if(a.s>.02){const[tx,ty]=toS(T.mx,T.my-T.mext+8);ctx.globalAlpha=a.s*.7*dk;ctx.font=`${12*KNX.fs}px system-ui`;ctx.fillStyle=lt?'#888':'#888';ctx.fillText(T.name,tx,ty);
+   T.subs.forEach(s=>{if(!s.name)return;const[sx,sy]=toS(s.cx,s.cy-s.rS-4);txt(s.name,sx,sy,`600 ${13*KNX.fs}px system-ui`,a.s*(1-.35*a.p)*dk)})}});
+ for(const p of S){if(!p.name||p===F)continue;const al=Math.max(A[p.t].n*(1-.8*dim*(1-p.h)),p.h*dim*.9);if(al<.02)continue;const[x,y]=toS(...pos(p));if(x<-80||x>W+80||y<-20||y>H+20)continue;txt(KNX.label(p),x,y+15,`${11*KNX.fs}px system-ui`,al)}
+ if(F&&F.name){const[x,y]=toS(...pos(F));txt(F.name,x,y+17,`600 ${12*KNX.fs}px system-ui`,1)}
+ if(view.sel&&F===view.sel){ctx.globalAlpha=1;ctx.font=`${12*KNX.fs}px system-ui`;const[x0,y0]=toS(...pos(F));relOf(F).forEach(r=>{const[x,y]=toS(...pos(r.p)),mx=(x0+x)/2,my=(y0+y)/2,tw=ctx.measureText(r.note).width;ctx.fillStyle=lt?'#fffd':'#000d';ctx.fillRect(mx-tw/2-4,my-11,tw+8,16);ctx.fillStyle=fg;ctx.fillText(r.note,mx,my+1)})}
  ctx.globalAlpha=1}
 
 // ===== 每一格畫面：有東西在動才重畫，靜止時不耗電 =====
@@ -263,7 +265,7 @@ function frame(now){requestAnimationFrame(frame);if(st.mode==='min'&&W)TP.forEac
 const zs=document.getElementById('zs');let ZMAX=20;
 function setZ(z,ax=W/2,ay=H/2){z=Math.max(.6,Math.min(ZMAX,z));const[wx,wy]=toW(ax,ay);view.z=z;view.cx=wx-(ax-W/2)/(base*z);view.cy=wy-(ay-H/2)/(base*z);zs.value=Math.log(Math.max(1,z))/Math.log(ZMAX)*100;dirty=true}
 zs.oninput=()=>setZ(Math.pow(ZMAX,zs.value/100));
-function anim(z1,x1,y1){const z0=view.z,x0=view.cx,y0=view.cy,t0=performance.now();(function step(n){const k=sm(0,1,(n-t0)/1000);view.z=z0+(z1-z0)*k;view.cx=x0+(x1-x0)*k;view.cy=y0+(y1-y0)*k;zs.value=Math.log(Math.max(1,view.z))/Math.log(ZMAX)*100;dirty=true;if(k<1)requestAnimationFrame(step)})(t0)}
+function anim(z1,x1,y1){const z0=view.z,x0=view.cx,y0=view.cy,t0=performance.now();(function step(n){const k=sm(0,1,(n-t0)/KNX.ms);view.z=z0+(z1-z0)*k;view.cx=x0+(x1-x0)*k;view.cy=y0+(y1-y0)*k;zs.value=Math.log(Math.max(1,view.z))/Math.log(ZMAX)*100;dirty=true;if(k<1)requestAnimationFrame(step)})(t0)}
 function home(a=true){const f=FIT[st.mode];ZMAX=st.mode==='star'?Math.max(20,...TP.map(zFor))*1.6:Math.max(14,...TP.map(T=>2.4*mm()/(T.mext*base)));if(a)anim(1,f.wc.x,f.wc.y);else{view.z=1;view.cx=f.wc.x;view.cy=f.wc.y;zs.value=0;dirty=true}}
 const flyTopic=T=>st.mode==='star'?anim(zFor(T),T.x,T.y):anim(Math.max(view.z,.62*mm()/(T.mext*base)),T.mx,T.my);
 const flySub=s=>anim(Math.max(view.z,1.45*mm()/(s.T.mext*base)),s.cx,s.cy);
@@ -342,4 +344,7 @@ document.getElementById('home').onclick=()=>{view.sel=null;tip.style.display='no
 build();ui();enterMode();requestAnimationFrame(frame);
 </script>
 <script src="data/first-sources.js"></script>
-<script src="folder.js"></script></body></html>
+<script src="folder.js"></script>
+<script src="ai.js"></script>
+<script src="layer2.js"></script>
+<script src="edit.js"></script></body></html>
