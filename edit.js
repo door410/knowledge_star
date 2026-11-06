@@ -32,7 +32,7 @@ function applyED() {
   KNX.fs = ED.fs; KNX.lw = ED.line.w; KNX.la = ED.line.a; KNX.dash = { dash: [6, 4], dot: [1.5, 3] }[ED.line.dash] || [];
   KNX.lineCol = ED.line.byType ? r => `rgba(${rgbOf(tcolOf(r.type || '有關'))},.75)` : null;
   [KNX.dmp, KNX.ms] = { weak: [.45, 1400], strong: [.72, 700] }[ED.dyn] || [.6, 1000];
-  uiStyle.textContent = ED.ui !== 1 ? `#ui,#zoom,#card,#tip,#linePanel,#pane,#toast{zoom:${ED.ui}}` : '';
+  uiStyle.textContent = ED.ui !== 1 ? `#zoom,#card,#tip,#pane,#toast,#menubar,.mpop,#menuEd{zoom:${ED.ui}}` : '';
   dirty = true;
 }
 
@@ -115,7 +115,7 @@ function editForm(p) {
 const hdb = new Promise((res, rej) => { const o = indexedDB.open('kn-hist', 1); o.onupgradeneeded = () => o.result.createObjectStore('h', { autoIncrement: true }); o.onsuccess = () => res(o.result); o.onerror = () => rej(o.error); });
 const hst = (mode, fn) => hdb.then(d => new Promise((res, rej) => { const t = d.transaction('h', mode), r = fn(t.objectStore('h')); t.oncomplete = () => res(r && r.result); t.onerror = () => rej(t.error); }));
 async function hist(path, name, old, now) {
-  await hst('readwrite', s => s.add({ t: Date.now(), path, name, old, now }));
+  await hst('readwrite', s => s.add({ t: Date.now(), path, name, old, now, b: window.knBatch || null, bl: window.knBatchLabel || null }));   // b＝同一批（主題整理），整批算一次
   const keys = await hst('readonly', s => s.getAllKeys()); if (keys.length > 400) await hst('readwrite', s => s.delete(IDBKeyRange.upperBound(keys[keys.length - 401])));
 }
 window.knHist = async (dir, name, text) => {   // folder.js 的 writeFile 每次寫檔前呼叫
@@ -128,21 +128,24 @@ window.knHist = async (dir, name, text) => {   // folder.js 的 writeFile 每次
 async function groups() {
   const all = await hst('readonly', s => s.getAll()), G = [];
   for (let i = all.length - 1; i >= 0; i--) { const r = all[i], g = G[G.length - 1];
-    if (g && g.path.join('/') === r.path.join('/') && g.t - r.t < 5000) { g.list.push(r); g.t = r.t; } else G.push({ t: r.t, path: r.path, list: [r] }); }
+    if (g && (r.b ? g.b === r.b : !g.b && g.path.join('/') === r.path.join('/') && g.t - r.t < 5000)) { g.list.push(r); g.t = r.t; } else G.push({ t: r.t, path: r.path, list: [r], b: r.b, bl: r.bl }); }
   return G.slice(0, 80);
 }
 async function restore(g) {
-  let d = KN.root; for (const seg of g.path) d = await d.getDirectoryHandle(seg, { create: true });
+  const dirOf = async path => { let d = KN.root; for (const seg of path) d = await d.getDirectoryHandle(seg, { create: true }); return d; };
+  let d = await dirOf(g.path);
   for (const r of g.list) {   // 由新到舊，一個一個倒回去
+    if (g.b) d = await dirOf(r.path);
     if (r.old == null) { try { await hist(r.path, r.name, await readF(d, r.name), null); await d.removeEntry(r.name); } catch (e) {} }
     else await KN.writeFile(d, r.name, r.old);
   }
+  if (g.b) { await KN.load(true); toast('已復原'); return; }
   let empty = true; for await (const x of d.keys()) { empty = false; break; }
   if (empty && g.path.length > 1) { let par = KN.root; for (const seg of g.path.slice(0, -1)) par = await par.getDirectoryHandle(seg); try { await par.removeEntry(g.path[g.path.length - 1]); } catch (e) {} }
   await KN.load(true); toast('已復原');
 }
 const tstr = t => { const d = new Date(t), z = n => String(n).padStart(2, '0'); return `${d.getMonth() + 1}/${d.getDate()} ${z(d.getHours())}:${z(d.getMinutes())}`; };
-const actOf = l => l.every(r => r.old == null) ? '新增' : l.every(r => r.now == null) ? '刪除' : '修改';
+const actOf = l => l[0].b ? '搬家' : l.every(r => r.old == null) ? '新增' : l.every(r => r.now == null) ? '刪除' : '修改';
 
 // ---------- 復原／重做（自訂設定）、檢視 ----------
 const UNDO = [], REDO = []; let last = '', applying = false, tmr = 0;
@@ -190,79 +193,96 @@ window.knPromptExtra = p => {
   return add ? p.replace('\n\nJSON 格式：', `\n6. 另外要求：${add}\n\nJSON 格式：`) : p;
 };
 
-// ---------- 編輯台 ----------
+// ---------- 編輯台（11/7 改：依畫面哪一塊分類，左邊清單＋右邊內容；06 第 33 輪）----------
 const edBtn = h('button', { className: 'c', textContent: '編輯台' }); document.getElementById('fbar').append(edBtn); edBtn.onclick = () => edPane();
-document.head.append(h('style', {}, `.edp details{border:1px solid #8885;border-radius:8px;margin:8px 0;padding:4px 10px}.edp summary{cursor:pointer;font-weight:bold;padding:2px 0}
-.edp label{display:inline-flex;align-items:center;gap:4px;margin:4px 10px 4px 0}.edp .tr{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:3px 0}.edp .tr>b{min-width:5em;font-weight:normal;opacity:.8}
-.edp textarea,.edp input[type=text]{background:transparent;color:inherit;border:1px solid #8886;border-radius:6px;padding:3px 6px;font:inherit}.edp textarea{width:100%;box-sizing:border-box}
-.edp select{font:inherit}.hrow{display:flex;gap:8px;align-items:center;border-bottom:1px solid #8883;padding:5px 0}.hrow .l{flex:1;overflow-wrap:anywhere}`));
-let edTab = 'custom'; const openSec = new Set(['view']);
+document.head.append(h('style', {}, `.edp label{display:inline-flex;align-items:center;gap:4px;margin:3px 10px 3px 0}.edp .tr{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:2px 0;padding:4px 0}.edp .tr>b{min-width:5.5em;font-weight:normal;opacity:.75}
+.edp .tr.blk{display:block}.edp .tr.blk>b{display:block;margin-bottom:2px}
+.edp textarea,.edp input[type=text]{background:transparent;color:inherit;border:var(--k-bw,1px) solid var(--k-bd,#8886);border-radius:6px;padding:3px 6px;font:inherit}.edp textarea{width:100%;box-sizing:border-box}
+.edp select{font:inherit;max-width:100%;min-width:0}.edp .tr input[type=text]{width:auto}.hrow{display:flex;gap:8px;align-items:center;border-bottom:1px solid #8883;padding:5px 0}.hrow .l{flex:1;overflow-wrap:anywhere}
+#pbody.ed2{padding:0;display:grid;grid-template-columns:108px minmax(0,1fr);overflow:hidden}
+.ed2 nav{border-right:var(--k-bw,1px) solid var(--k-bd,#8884);padding:8px 6px;display:flex;flex-direction:column;gap:2px;overflow:auto}
+.ed2 nav button{background:none;border:0;color:inherit;text-align:left;font:inherit;white-space:nowrap;padding:7px 8px;border-radius:calc(var(--k-r,10px)*.6);cursor:pointer;opacity:.8}
+.ed2 nav button.on{background:var(--k-btn,#8883);opacity:1;font-weight:600}
+.ed2 .edp{overflow:auto;padding:10px 14px}
+@media(max-width:520px){#pbody.ed2{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}.ed2 nav{flex-direction:row;flex-wrap:wrap;border-right:0;border-bottom:var(--k-bw,1px) solid var(--k-bd,#8884)}}`));
+const CATS = { net: '知識網', line: '線和關聯', card: '卡片', keys: '選單與按鍵', ai: 'AI 拆點', view: '檢視與復原' };
+const SECMAP = { filter: 'net', ui: 'keys', view: 'view', net: 'net', card: 'card', line: 'line', ai: 'ai' };
+let edCat = 'net';
 const sel = (k, cur, opts) => `<select data-e="${k}">${opts.map(([v, t]) => `<option value="${E(v)}"${String(v) === String(cur) ? ' selected' : ''}>${E(t)}</option>`).join('')}</select>`;
 const rng = (k, cur, a, b, s) => `<input type="range" data-e="${k}" min="${a}" max="${b}" step="${s}" value="${cur}"><span class="note">${Math.round(cur * 100)}%</span>`;
 const ck = (k, on, t) => `<label><input type="checkbox" data-e="${k}"${on ? ' checked' : ''}>${t}</label>`;
-const sec = (id, title, html) => `<details data-sec="${id}"${openSec.has(id) ? ' open' : ''}><summary>${title}</summary>${html}</details>`;
-async function edPane() {
-  const tabs = `<div class="row"><button class="c${edTab === 'custom' ? ' on' : ''}" data-et="custom">自訂</button><button class="c${edTab === 'hist' ? ' on' : ''}" data-et="hist">知識內容</button><button class="c${edTab === 'eval' ? ' on' : ''}" data-et="eval">評估成績表</button></div>`;
-  window.knBindTabs = () => pbody.querySelectorAll('[data-et]').forEach(b => b.onclick = () => { edTab = b.dataset.et; edPane(); });
-  if (edTab === 'eval' && window.knEvalPane) return knEvalPane(tabs);
-  if (edTab === 'hist') {
-    const G = KN.root ? await groups() : [];
-    openPane('編輯台', `<div class="edp">${tabs}${!KN.root ? '<p>還沒連上資料夾。</p>' : !G.length ? '<p>還沒有改過知識內容。</p>' :
-      '<div class="row"><button class="go" data-r="0">復原最近一次</button></div>' + G.map((g, i) => `<div class="hrow"><span class="note">${tstr(g.t)}</span><span>${actOf(g.list)}</span><span class="l">${E(g.path.slice(1).join('/') || g.path[0])}${g.list.length > 1 ? `（${g.list.length} 個檔）` : '／' + E(g.list[0].name.replace(/\.md$/, ''))}</span><button class="c" data-r="${i}">復原</button></div>`).join('')}</div>`);
-    pbody.querySelectorAll('[data-r]').forEach(b => b.onclick = async () => { b.disabled = true; await restore(G[+b.dataset.r]); edPane(); });
-  } else {
-    const f = ED.filter, tops = K.topics.filter(t => !t.parent), srcs = K.sources.filter(s => !s.demo), views = store.get('views', []);
-    openPane('編輯台', `<div class="edp">${tabs}
-    <div class="row"><button class="c" id="eun">↶ 復原</button><button class="c" id="ere">↷ 重做</button><button class="c" id="edef">恢復預設</button></div>
-    ${sec('view', '檢視', `<div class="tr"><input type="text" id="vname" placeholder="名稱" style="flex:1;min-width:0"><button class="c" id="vsave">存成檢視</button>${qtip('把現在的顯示、篩選、卡片、線的設定存起來，之後一鍵切換。')}</div>` +
-      views.map((v, i) => `<div class="tr"><span style="flex:1">${E(v.name)}</span><button class="c" data-va="${i}">套用</button><button class="c" data-vx="${i}">×</button></div>`).join(''))}
-    ${sec('filter', '篩選', `<div class="tr"><b>主題</b>${tops.map(t => `<label><input type="checkbox" data-top="${E(t.id)}"${f.tops.includes(t.id) ? ' checked' : ''}>${E(t.name)}</label>`).join('')}</div>
-      <div class="tr"><b>來源</b>${sel('filter.src', f.src, [['', '全部'], ...srcs.map(s => [s.id, s.date + ' ' + s.title])])}</div>
-      <div class="tr"><b>時間</b>${sel('filter.days', f.days, [[0, '全部'], [7, '最近 7 天'], [30, '最近 30 天'], [90, '最近 90 天']])}<b>私人</b>${sel('filter.priv', f.priv, [['all', '都顯示'], ['hide', '不顯示私人'], ['only', '只看私人']])}</div>
-      <div class="tr"><b>關鍵字</b><input type="text" data-e="filter.q" value="${E(f.q)}" style="flex:1;min-width:0"><button class="c" id="fclr">清除篩選</button></div>`)}
-    ${sec('net', '知識網', `<div class="tr"><b>點旁邊的字</b>${sel('label', ED.label, [['name', '名稱'], ['sub', '名稱＋子主題'], ['desc', '說明開頭'], ['none', '不顯示']])}${qtip('簡約模式放大後，點旁邊顯示的字。')}</div>
-      <div class="tr"><b>字的大小</b>${rng('fs', ED.fs, .8, 2, .1)}</div>
-      <div class="tr"><b>動態</b>${sel('dyn', ED.dyn, [['weak', '弱'], ['mid', '中'], ['strong', '強']])}${qtip('拖曳、飛過去時的彈性和速度。')}</div>
-      <div class="tr"><b>打開時先看</b>${sel('open', ED.open, [['home', '全貌'], ['last', '上次看的位置'], ['qa', '問答'], ['recent', '最近消化'], ...tops.map(t => ['topic:' + t.id, '主題：' + t.name])])}</div>`)}
-    ${sec('card', '卡片', `<div class="tr"><b>分頁</b>${ck('card.tabs.desc', ED.card.tabs.desc, '說明')}${ck('card.tabs.src', ED.card.tabs.src, '來源')}${ck('card.tabs.rel', ED.card.tabs.rel, '關聯')}${ck('card.tabs.mine', ED.card.tabs.mine, '我的想法')}</div>
-      <div class="tr"><b>先打開</b>${sel('card.first', ED.card.first, [['desc', '說明'], ['src', '來源'], ['rel', '關聯'], ['mine', '我的想法']])}</div>
-      <div class="tr"><b>說明分頁</b>${ck('card.why', ED.card.why, '為什麼拆成這個點')}${ck('card.meta', ED.card.meta, '來源數和拆點方式')}</div>`)}
-    ${sec('line', '線和關聯類型', `<div class="tr"><b>粗細</b>${rng('line.w', ED.line.w, .5, 3, .1)}</div><div class="tr"><b>濃淡</b>${rng('line.a', ED.line.a, .3, 2, .1)}</div>
-      <div class="tr"><b>樣式</b>${sel('line.dash', ED.line.dash, [['solid', '實線'], ['dash', '虛線'], ['dot', '點線']])}${ck('line.byType', ED.line.byType, '依類型上色')}</div>
-      ${KN.RTYPES.map(t => `<div class="tr"><input type="color" data-tc="${E(t)}" value="${tcolOf(t)}"><span style="flex:1">${E(t)}</span><label><input type="checkbox" data-th="${E(t)}"${ED.thide[t] ? '' : ' checked'}>顯示</label>${BASE_TYPES.includes(t) ? '' : `<button class="c" data-tx="${E(t)}">×</button>`}</div>`).join('')}
-      <div class="tr"><input type="text" id="tnew" placeholder="新的關聯類型" style="flex:1;min-width:0"><button class="c" id="tadd">加</button></div>`)}
-    ${sec('ai', '拆點', `<div class="tr"><b>粗細</b>${sel('grain', ED.grain, [['coarse', '粗（點少）'], ['mid', '中'], ['fine', '細（點多）']])}${qtip('交給 AI 拆的時候，要拆得多細。')}</div>
-      <div class="tr" style="display:block"><b>給 AI 的補充指示</b><textarea data-e="aiNote" rows="3">${E(ED.aiNote)}</textarea></div>`)}
-    ${sec('ui', '介面', `<div class="tr"><b>介面大小</b>${rng('ui', ED.ui, .8, 1.4, .05)}</div>` +
-      Object.keys(KEYS).map(a => `<div class="tr"><b>${KEYS[a]}</b><button class="c" data-key="${a}">${capture === a ? '按一個鍵…' : keyName(ED.keys[a] || '')}</button></div>`).join('') + `<p class="note">快捷鍵：按右邊的鈕，再按想用的鍵；Backspace 清除。</p>`)}
-    </div>`);
-    const P = pbody;
-    P.querySelectorAll('details').forEach(d => d.ontoggle = () => d.open ? openSec.add(d.dataset.sec) : openSec.delete(d.dataset.sec));
-    P.querySelector('#eun').onclick = () => { clearTimeout(tmr); pushUndo(); if (!UNDO.length) return toast('沒有可以復原的'); REDO.push(snap()); applyState(UNDO.pop()); };
-    P.querySelector('#ere').onclick = () => { if (!REDO.length) return toast('沒有可以重做的'); UNDO.push(snap()); applyState(REDO.pop()); };
-    P.querySelector('#edef').onclick = () => { pushUndo(); UNDO.push(snap()); REDO.length = 0; applyState(JSON.stringify({ st: clone(DEF), ed: clone(EDDEF) })); toast('已恢復預設（可以按「復原」回去）'); };
-    P.querySelector('#vsave').onclick = () => { const n = P.querySelector('#vname').value.trim() || '檢視 ' + (views.length + 1); views.push({ name: n, st: clone(st), ed: clone(ED) }); _set('views', views); edPane(); toast('已存成檢視：' + n); };
-    P.querySelectorAll('[data-va]').forEach(b => b.onclick = () => { const v = views[+b.dataset.va]; pushUndo(); UNDO.push(snap()); REDO.length = 0; applyState(JSON.stringify({ st: v.st, ed: v.ed })); toast('已套用：' + v.name); });
-    P.querySelectorAll('[data-vx]').forEach(b => b.onclick = () => { views.splice(+b.dataset.vx, 1); _set('views', views); edPane(); });
-    const after = k => { saveED(); applyED(); if (/^(filter|thide)/.test(k)) rebuild(); else if (/^card/.test(k) && !card.hidden && curP) openCard(curP); };
-    P.querySelectorAll('[data-e]').forEach(el => {
-      const k = el.dataset.e, set = () => { const ks = k.split('.'); let o = ED; ks.slice(0, -1).forEach(x => o = o[x]);
-        o[ks[ks.length - 1]] = el.type === 'checkbox' ? el.checked : el.type === 'range' || k === 'filter.days' ? parseFloat(el.value) : el.value.trim();
-        if (el.type === 'range') el.nextElementSibling.textContent = Math.round(el.value * 100) + '%'; after(k); };
-      if (el.type === 'range') el.oninput = set; else el.onchange = set;
-    });
-    P.querySelectorAll('[data-top]').forEach(el => el.onchange = () => { ED.filter.tops = [...P.querySelectorAll('[data-top]:checked')].map(x => x.dataset.top); after('filter'); });
-    P.querySelector('#fclr').onclick = () => { ED.filter = clone(EDDEF.filter); after('filter'); edPane(); };
-    P.querySelectorAll('[data-tc]').forEach(el => el.oninput = () => { ED.tcol[el.dataset.tc] = el.value; after('tcol'); });
-    P.querySelectorAll('[data-th]').forEach(el => el.onchange = () => { if (el.checked) delete ED.thide[el.dataset.th]; else ED.thide[el.dataset.th] = true; after('thide'); });
-    P.querySelectorAll('[data-tx]').forEach(el => el.onclick = () => { const t = el.dataset.tx; ED.types = ED.types.filter(x => x !== t); delete ED.thide[t]; delete ED.tcol[t]; after('thide'); edPane(); });
-    P.querySelector('#tadd').onclick = () => { const t = P.querySelector('#tnew').value.trim(); if (!t || KN.RTYPES.includes(t)) return; ED.types.push(t); after('types'); edPane(); };
-    P.querySelectorAll('[data-key]').forEach(b => b.onclick = () => { capture = b.dataset.key; b.textContent = '按一個鍵…'; });
-  }
-  pbody.querySelectorAll('[data-et]').forEach(b => b.onclick = () => { edTab = b.dataset.et; edPane(); });
+const lk = (g, k, t) => `<label><input type="checkbox" data-ln="${g}.${k}"${st.lines[g][k] ? ' checked' : ''}>${t}</label>`;
+const row = (name, html, help, blk) => `<div class="tr${blk ? ' blk' : ''}"><b>${name}${help ? qtip(help) : ''}</b>${html}</div>`;
+function catHtml(c) {
+  const f = ED.filter, tops = K.topics.filter(t => !t.parent), srcs = K.sources.filter(s => !s.demo), views = store.get('views', []);
+  if (c === 'net') return row('點旁邊的字', sel('label', ED.label, [['name', '名稱'], ['sub', '名稱＋子主題'], ['desc', '說明開頭'], ['none', '不顯示']]), '簡約模式放大後，點旁邊顯示的字。') +
+    row('篩選：主題', tops.map(t => `<label><input type="checkbox" data-top="${E(t.id)}"${f.tops.includes(t.id) ? ' checked' : ''}>${E(t.name)}</label>`).join('') || '<span class="note">還沒有主題</span>', '只看勾選的主題；都不勾＝全部。') +
+    row('篩選：來源', sel('filter.src', f.src, [['', '全部'], ...srcs.map(s => [s.id, s.date + ' ' + s.title])])) +
+    row('篩選：時間', sel('filter.days', f.days, [[0, '全部'], [7, '最近 7 天'], [30, '最近 30 天'], [90, '最近 90 天']])) +
+    row('篩選：私人', sel('filter.priv', f.priv, [['all', '都顯示'], ['hide', '不顯示私人'], ['only', '只看私人']])) +
+    row('篩選：關鍵字', `<input type="text" data-e="filter.q" value="${E(f.q)}" style="flex:1;min-width:0"><button class="c" id="fclr">清除篩選</button>`) +
+    row('打開時先看', sel('open', ED.open, [['home', '全貌'], ['last', '上次看的位置'], ['qa', '問答'], ['recent', '最近消化'], ...tops.map(t => ['topic:' + t.id, '主題：' + t.name])])) +
+    row('動態', sel('dyn', ED.dyn, [['weak', '弱'], ['mid', '中'], ['strong', '強']]), '拖曳、飛過去時的彈性和速度。');
+  if (c === 'line') return row('平常顯示', lk('norm', 'in', '同主題的關聯') + lk('norm', 'x', '跨主題的關聯'), '簡約模式放大到知識點時，平常就畫出來的線。') +
+    row('點選時顯示', lk('sel', 's', '結構線') + lk('sel', 'in', '同主題的關聯') + lk('sel', 'x', '跨主題的關聯'), '點一個知識點時，畫出哪些線。') +
+    row('粗細', rng('line.w', ED.line.w, .5, 3, .1)) + row('濃淡', rng('line.a', ED.line.a, .3, 2, .1)) +
+    row('樣式', sel('line.dash', ED.line.dash, [['solid', '實線'], ['dash', '虛線'], ['dot', '點線']]) + ck('line.byType', ED.line.byType, '依類型上色'), '勾「依類型上色」，線的顏色就照下面每種關聯的顏色。') +
+    `<div class="tr blk"><b>關聯類型${qtip('每種關聯的顏色、要不要顯示；自己加的類型可以刪。')}</b>` +
+    KN.RTYPES.map(t => `<div class="tr"><input type="color" data-tc="${E(t)}" value="${tcolOf(t)}"><span style="flex:1">${E(t)}</span><label><input type="checkbox" data-th="${E(t)}"${ED.thide[t] ? '' : ' checked'}>顯示</label>${BASE_TYPES.includes(t) ? '' : `<button class="c" data-tx="${E(t)}">×</button>`}</div>`).join('') +
+    `<div class="tr"><input type="text" id="tnew" placeholder="新的關聯類型" style="flex:1;min-width:0"><button class="c" id="tadd">加</button></div></div>`;
+  if (c === 'card') return row('分頁', ck('card.tabs.desc', ED.card.tabs.desc, '說明') + ck('card.tabs.src', ED.card.tabs.src, '來源') + ck('card.tabs.rel', ED.card.tabs.rel, '關聯') + ck('card.tabs.mine', ED.card.tabs.mine, '我的想法')) +
+    row('先打開', sel('card.first', ED.card.first, [['desc', '說明'], ['src', '來源'], ['rel', '關聯'], ['mine', '我的想法']]), '點知識點時，卡片先打開哪一頁。') +
+    row('說明分頁', ck('card.why', ED.card.why, '為什麼拆成這個點') + ck('card.meta', ED.card.meta, '來源數和拆點方式'), '「說明」分頁裡要不要顯示這兩段。');
+  if (c === 'keys') return row('整理選單', '<button class="c" id="emenu">開始拖曳</button>', '拖曳來排上方選單、選哪些露出在左上。') +
+    Object.keys(KEYS).map(a => row(KEYS[a], `<button class="c" data-key="${a}">${capture === a ? '按一個鍵…' : keyName(ED.keys[a] || '')}</button>`)).join('') +
+    '<p class="note">快捷鍵：按右邊的鈕，再按想用的鍵；Backspace 清除。</p>';
+  if (c === 'ai') return row('拆點粗細', sel('grain', ED.grain, [['coarse', '粗（點少）'], ['mid', '中'], ['fine', '細（點多）']]), '交給 AI 拆的時候，要拆得多細。') +
+    row('給 AI 的補充指示', `<textarea data-e="aiNote" rows="3" placeholder="例如：例子也要拆成點">${E(ED.aiNote)}</textarea>`, '每次拆點都會附上這句。', true) +
+    row('AI 金鑰', '<button class="c" id="eai">打開 AI 設定</button>', 'Gemini、Groq 的金鑰（只存在這台電腦的瀏覽器）。');
+  if (c === 'view') return row('存成檢視', `<input type="text" id="vname" placeholder="名稱" style="flex:1;min-width:0"><button class="c" id="vsave">存</button>`, '把現在的顯示、篩選、卡片、線的設定存起來，之後一鍵切換。') +
+    views.map((v, i) => `<div class="tr"><span style="flex:1">${E(v.name)}</span><button class="c" data-va="${i}">套用</button><button class="c" data-vx="${i}">×</button></div>`).join('') +
+    row('復原', '<button class="c" id="eun">↶ 復原</button><button class="c" id="ere">↷ 重做</button><button class="c" id="edef">恢復預設</button>', '設定改壞了可以退回。知識內容（刪掉、改掉的點）在「整理 ▾ › 紀錄與復原」。');
+  return '';
+}
+async function histPane() {
+  const G = KN.root ? await groups() : [];
+  openPane('紀錄與復原', `<div class="edp">${!KN.root ? '<p class="kempty">還沒連上資料夾。</p>' : !G.length ? '<p class="kempty">還沒有改過知識內容。</p>' :
+    `<div class="row" style="justify-content:space-between"><span class="note">最近 ${G.length} 筆</span><button class="go" data-r="0">復原最近一次</button></div><div class="kgrid">` + G.map((g, i) => `<div class="kc still"><div class="t">${g.b ? E(g.bl || '主題整理') : E(g.path.slice(1).join('/') || g.path[0]) + (g.list.length > 1 ? '' : '／' + E(g.list[0].name.replace(/\.md$/, '')))}</div><div class="s">${tstr(g.t)}・${actOf(g.list)}${g.list.length > 1 ? `・${g.list.length} 個檔` : ''}</div><div class="kacts"><button class="c" data-r="${i}">復原</button></div></div>`).join('') + '</div>'}</div>`);
+  pbody.querySelectorAll('[data-r]').forEach(b => b.onclick = async () => { b.disabled = true; await restore(G[+b.dataset.r]); histPane(); });
+}
+window.knHistPane = histPane;
+function edPane() {
+  const keepScroll = isEd() && pbody.querySelector('.edp') ? pbody.querySelector('.edp').scrollTop : 0;
+  openPane('編輯台', `<nav>${Object.keys(CATS).map(k => `<button data-cat="${k}" class="${k === edCat ? 'on' : ''}">${CATS[k]}</button>`).join('')}</nav><div class="edp">${catHtml(edCat)}</div>`);
+  pbody.classList.add('ed2'); const P = pbody; P.querySelector('.edp').scrollTop = keepScroll;
+  P.querySelectorAll('[data-cat]').forEach(b => b.onclick = () => { edCat = b.dataset.cat; edPane(); });
+  const on = (id, fn) => { const el = P.querySelector(id); if (el) el.onclick = fn; };
+  on('#eun', () => { clearTimeout(tmr); pushUndo(); if (!UNDO.length) return toast('沒有可以復原的'); REDO.push(snap()); applyState(UNDO.pop()); });
+  on('#ere', () => { if (!REDO.length) return toast('沒有可以重做的'); UNDO.push(snap()); applyState(REDO.pop()); });
+  on('#edef', () => { pushUndo(); UNDO.push(snap()); REDO.length = 0; applyState(JSON.stringify({ st: clone(DEF), ed: clone(EDDEF) })); toast('已恢復預設（可以按「復原」回去）'); });
+  on('#vsave', () => { const views = store.get('views', []), n = P.querySelector('#vname').value.trim() || '檢視 ' + (views.length + 1); views.push({ name: n, st: clone(st), ed: clone(ED) }); _set('views', views); edPane(); toast('已存成檢視：' + n); });
+  on('#emenu', () => window.knMenuEdit && knMenuEdit());
+  on('#eai', () => { const b = document.querySelector('#aiBar button'); if (b) b.click(); });
+  P.querySelectorAll('[data-va]').forEach(b => b.onclick = () => { const v = store.get('views', [])[+b.dataset.va]; pushUndo(); UNDO.push(snap()); REDO.length = 0; applyState(JSON.stringify({ st: v.st, ed: v.ed })); toast('已套用：' + v.name); });
+  P.querySelectorAll('[data-vx]').forEach(b => b.onclick = () => { const views = store.get('views', []); views.splice(+b.dataset.vx, 1); _set('views', views); edPane(); });
+  const after = k => { saveED(); applyED(); if (/^(filter|thide)/.test(k)) rebuild(); else if (/^card/.test(k) && !card.hidden && curP) openCard(curP); };
+  P.querySelectorAll('[data-e]').forEach(el => {
+    const k = el.dataset.e, set = () => { const ks = k.split('.'); let o = ED; ks.slice(0, -1).forEach(x => o = o[x]);
+      o[ks[ks.length - 1]] = el.type === 'checkbox' ? el.checked : el.type === 'range' || k === 'filter.days' ? parseFloat(el.value) : el.value.trim();
+      if (el.type === 'range') el.nextElementSibling.textContent = Math.round(el.value * 100) + '%'; after(k); };
+    if (el.type === 'range') el.oninput = set; else el.onchange = set;
+  });
+  P.querySelectorAll('[data-ln]').forEach(el => el.onchange = () => { const [g, k] = el.dataset.ln.split('.'); st.lines[g][k] = el.checked; save(); dirty = true; });
+  P.querySelectorAll('[data-top]').forEach(el => el.onchange = () => { ED.filter.tops = [...P.querySelectorAll('[data-top]:checked')].map(x => x.dataset.top); after('filter'); });
+  on('#fclr', () => { ED.filter = clone(EDDEF.filter); after('filter'); edPane(); });
+  P.querySelectorAll('[data-tc]').forEach(el => el.oninput = () => { ED.tcol[el.dataset.tc] = el.value; after('tcol'); });
+  P.querySelectorAll('[data-th]').forEach(el => el.onchange = () => { if (el.checked) delete ED.thide[el.dataset.th]; else ED.thide[el.dataset.th] = true; after('thide'); });
+  P.querySelectorAll('[data-tx]').forEach(el => el.onclick = () => { const t = el.dataset.tx; ED.types = ED.types.filter(x => x !== t); delete ED.thide[t]; delete ED.tcol[t]; after('thide'); edPane(); });
+  on('#tadd', () => { const t = P.querySelector('#tnew').value.trim(); if (!t || KN.RTYPES.includes(t)) return; ED.types.push(t); after('types'); edPane(); });
+  P.querySelectorAll('[data-key]').forEach(b => b.onclick = () => { capture = b.dataset.key; b.textContent = '按一個鍵…'; });
 }
 
-window.knEd = (t, s) => { if (t) edTab = t; if (s) openSec.add(s); edPane(); };
+window.knEd = (t, s) => { if (t === 'hist') return histPane(); if (s && SECMAP[s]) edCat = SECMAP[s]; edPane(); };
 window.knSetED = (k, v) => { ED[k] = v; saveED(); applyED(); };
 applyED(); build(); ui(); last = snap();
 })();

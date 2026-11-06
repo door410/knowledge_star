@@ -109,17 +109,12 @@ ${pairs.map(([n, q], i) => `${i + 1}. 新：${n['名稱']}｜${n['說明'] || ''
 // ---------- 工具列、樣式 ----------
 const qaBtn = h('button', { className: 'c', textContent: '問答' }), rcBtn = h('button', { className: 'c', textContent: '最近消化' });
 document.getElementById('fbar').append(qaBtn, rcBtn);
-document.head.append(h('style', {}, `#pane.side{left:auto;width:min(440px,calc(100vw - 24px));max-width:none;margin:0}body.side #card{right:464px}
-.cite{cursor:pointer;border:1px solid #8888;border-radius:6px;padding:0 5px;margin:0 3px;font-size:12px;background:none;color:inherit}
+document.head.append(h('style', {}, `.cite{cursor:pointer;border:1px solid #8888;border-radius:6px;padding:0 5px;margin:0 3px;font-size:12px;background:none;color:inherit}
 .qa-a{white-space:pre-wrap;margin:10px 0}.qa-l p,.rcs{margin:4px 0}.rcs{cursor:pointer}.qc{font-size:12px;opacity:.8;margin-left:8px}.qc.miss{color:#e07070;opacity:1}
 .rcp{border:1px solid #8884;border-radius:10px;padding:8px 12px;margin:8px 0}.rcp blockquote{margin:0 0 6px;opacity:.85}.rcp .nm{cursor:pointer;font-weight:bold;background:none;border:0;color:inherit;padding:0;font-size:inherit}
-#cbody textarea.mine{width:100%;box-sizing:border-box;min-height:9em;background:transparent;color:inherit;border:1px solid #8886;border-radius:8px;padding:6px;font:inherit}
-@media(max-width:760px){body.side #card{right:8px}}`));
+#cbody textarea.mine{width:100%;box-sizing:border-box;min-height:9em;background:transparent;color:inherit;border:1px solid #8886;border-radius:8px;padding:6px;font:inherit}`));
 const ptitle = document.getElementById('ptitle');
-new MutationObserver(() => { const s = !pane.hidden && ['問答', '編輯台'].includes(ptitle.textContent); pane.classList.toggle('side', s); document.body.classList.toggle('side', s); })
-  .observe(pane, { attributes: true, attributeFilter: ['hidden'] });
-new MutationObserver(() => { const s = !pane.hidden && ['問答', '編輯台'].includes(ptitle.textContent); pane.classList.toggle('side', s); document.body.classList.toggle('side', s); })
-  .observe(ptitle, { childList: true, characterData: true, subtree: true });
+// 右側小面板（問答、編輯台…）的位置改在 folder.js openPane 決定（11/7）
 
 // ---------- 問答（右邊面板）----------
 let qaLast = { q: '', html: '' };
@@ -136,7 +131,7 @@ qaBtn.onclick = () => {
     KNX.glow = new Set(hits.map(p => byId[p.id]).filter(Boolean)); dirty = true;   // 知識網上相關的點亮起來
     if (!hits.length) { out.innerHTML = '<p class="qa-a">資料裡沒有。</p>'; qaLast = { q, html: out.innerHTML }; return; }
     const title = p => (K.sources.find(s => s.id === srcOf(p)) || {}).title || '';
-    const refs = '<div class="qa-l"><b>找到的知識點</b>' + hits.map((p, i) => `<p><button class="cite" data-id="${E(p.id)}">${i + 1}</button>${E(p.name)}<span class="note">　${E(title(p))}</span></p>`).join('') + '</div>';
+    const refs = '<div class="ksec">找到的知識點</div><div class="kgrid">' + hits.map((p, i) => `<div class="kc cite" tabindex="0" data-id="${E(p.id)}"><div class="t"><span class="kno">${i + 1}</span>${E(p.name)}</div><div class="s">${E(title(p))}</div></div>`).join('') + '</div>';
     out.innerHTML = '<p class="note">AI 回答中…</p>' + refs; bind();
     let ans = null;
     try {
@@ -160,7 +155,7 @@ ${hits.map((p, i) => `[${i + 1}] ${p.name}：${p.desc || ''}${p.quote ? '（原�
 // ---------- 最近消化（補看拆解、理由、引用核對）----------
 function recentPane() {
   const all = KN.realPts(), srcs = K.sources.filter(s => !s.demo).sort((a, b) => (b.date || '').localeCompare(a.date || '') || a.title.localeCompare(b.title)).slice(0, 60);
-  openPane('最近消化', srcs.length ? srcs.map(s => `<p class="rcs" data-s="${E(s.id)}"><span class="note">${E(s.date)}</span>　${E(s.title)}<span class="note">　${all.filter(p => srcOf(p) === s.id).length} 點</span></p>`).join('') : '<p>還沒有消化過的來源。</p>');
+  openPane('回顧', '<span data-rv hidden></span>' + (srcs.length ? '<div class="kgrid">' + srcs.map(s => `<div class="kc" tabindex="0" data-s="${E(s.id)}"><div class="t">${E(s.title)}</div><div class="s">${E(s.date)}・${all.filter(p => srcOf(p) === s.id).length} 點</div></div>`).join('') + '</div>' : '<p class="kempty">還沒有消化過的來源。</p>'));
   pbody.querySelectorAll('[data-s]').forEach(b => b.onclick = () => srcPane(b.dataset.s));
   if (window.knRecentTabs) knRecentTabs();
 }
@@ -171,7 +166,7 @@ async function srcPane(id) {
   let full = '';
   try { const dh = await (await KN.root.getDirectoryHandle('02-知識')).getDirectoryHandle(id); full = await (await (await dh.getFileHandle('原文.md')).getFile()).text(); } catch (e) {}
   const chk = list.map(p => quoteCheck(p.quote, full)), has = chk.filter(c => c !== 'none').length, ok = chk.filter(c => c === 'ok').length;
-  openPane(s ? s.title : id, `<div class="row"><button class="go sub" id="rb">← 最近消化</button><button class="go sub" id="rf">整篇原文</button>${has ? `<span class="note">原文對得上 ${ok}／${has}</span>${qtip('AI 引的原文，在你存的原文裡找不找得到（忽略空白和標點）。')}` : ''}</div>${(() => { const m = full.match(/^類型:\s*(.*)$/m); return `<p class="note">怎麼進來的：${m ? E(m[1].replace(/^"|"$/g, '')) : '—'}｜${E(s ? s.date : '')}</p>`; })()}<div id="rfull" hidden></div>
+  openPane(s ? s.title : id, `<div class="row"><button class="go sub" id="rb">← 回顧</button><button class="go sub" id="rf">整篇原文</button>${has ? `<span class="note">原文對得上 ${ok}／${has}</span>${qtip('AI 引的原文，在你存的原文裡找不找得到（忽略空白和標點）。')}` : ''}</div>${(() => { const m = full.match(/^類型:\s*(.*)$/m); return `<p class="note">怎麼進來的：${m ? E(m[1].replace(/^"|"$/g, '')) : '—'}｜${E(s ? s.date : '')}</p>`; })()}<div id="rfull" hidden></div>
    ${list.map((p, i) => `<div class="rcp">${p.quote ? `<blockquote>${E(p.quote)}</blockquote>` : ''}<button class="nm" data-id="${E(p.id)}">${E(p.name)}</button><span class="qc ${chk[i]}">${QC[chk[i]]}</span><p>${E(p.desc)}</p>${p.why ? `<p class="note">${E(p.why)}</p>` : ''}</div>`).join('')}`);
   pbody.querySelector('#rb').onclick = recentPane;
   pbody.querySelectorAll('.nm').forEach(b => b.onclick = () => { KN.closePane(); goPoint(b.dataset.id); });

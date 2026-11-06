@@ -227,22 +227,22 @@ function drawStar(){const sel=view.sel,wc=FIT.star.wc;
  ctx.globalAlpha=1}
 
 // ===== 畫簡約 =====
-function pointColor(p,lt){if(st.col==='topic')return TP[p.t].col;if(st.col==='age')return mix(st.age[0],st.age[1],p.age);if(st.col==='fade')return mix(st.fade[0],st.fade[1],p.seen);return st.mono[lt?'light':'dark']}
-function drawMin(){const lt=st.bg==='light',F=hover||view.sel,L=st.lines,fg=KNX.fc||(lt?'#45484E':'#ddd'),bgc=lt?'#fff':'#000',mono=st.mono[lt?'light':'dark'];
+function pointColor(p,lt){if(KNX.newc&&!p.demo&&Date.now()-p.created<7*864e5)return KNX.newc;if(st.col==='topic')return TP[p.t].col;if(st.col==='age')return mix(st.age[0],st.age[1],p.age);if(st.col==='fade')return mix(st.fade[0],st.fade[1],p.seen);return KNX.dot||st.mono[lt?'light':'dark']}
+function drawMin(){const lt=st.bg==='light',F=hover||view.sel,L=st.lines,fg=KNX.fc||(lt?'#45484E':'#ddd'),bgc=KNX.net||(lt?'#fff':'#000'),mono=KNX.dot||st.mono[lt?'light':'dark'],acc=KNX.sel||st.accent;
  ctx.fillStyle=bgc;ctx.fillRect(0,0,W,H);
  const A=TP.map(T=>({s:subA(T),p:ptA(T),n:nmA(T)}));
  const line=(a,b)=>{const[x1,y1]=toS(...a),[x2,y2]=toS(...b);ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke()};
  // 平常的關聯線（放大到知識點那層才出現）
- const lc0=lt?'rgba(69,72,78,.28)':'rgba(255,255,255,.22)';ctx.lineWidth=.8*KNX.lw;ctx.setLineDash(KNX.dash);ctx.strokeStyle=lc0;
+ const lc0=KNX.lc?`rgba(${rgbOf(KNX.lc)},.3)`:lt?'rgba(69,72,78,.28)':'rgba(255,255,255,.22)';ctx.lineWidth=.8*KNX.lw;ctx.setLineDash(KNX.dash);ctx.strokeStyle=lc0;
  S.forEach(p=>(adj[p.id]||[]).forEach(r=>{if(p.id>r.p.id||!(r.x?L.norm.x:L.norm.in))return;const a=r.x?Math.max(A[p.t].p,A[r.p.t].p):A[p.t].p;if(a<.02)return;ctx.globalAlpha=Math.min(1,a*(1-.75*dim)*KNX.la);ctx.strokeStyle=KNX.lineCol?KNX.lineCol(r):lc0;line(pos(p),pos(r.p))}));
  // 滑過／選取的點：它的線用強調色
- if(F&&dim>0){ctx.globalAlpha=dim;ctx.strokeStyle=st.accent;ctx.lineWidth=1.3*KNX.lw;
+ if(F&&dim>0){ctx.globalAlpha=dim;ctx.strokeStyle=acc;ctx.lineWidth=1.3*KNX.lw;
   if(L.sel.s){const sb=TP[F.t].subs[F.sub];line(pos(F),[sb.cx,sb.cy]);line([sb.cx,sb.cy],[TP[F.t].mx,TP[F.t].my])}
   relOf(F).forEach(r=>line(pos(F),pos(r.p)))}
  ctx.setLineDash([]);
  // 知識點：全貌時是淡淡的小點雲，放大後變成清楚的點
  for(const p of S){const[x,y]=toS(...pos(p));if(x<-20||y<-20||x>W+20||y>H+20)continue;const a=A[p.t].p;
-  ctx.fillStyle=p.g>.01?mix(lt?'#45484E':'#C9CCD1',st.accent,Math.min(1,p.g*1.3)):pointColor(p,lt);
+  ctx.fillStyle=p.g>.01?mix(mono,acc,Math.min(1,p.g*1.3)):pointColor(p,lt);
   const sp=TP[p.t].pts.length<120?1:0;ctx.globalAlpha=((sp?.6:.22)+(sp?.4:.78)*a)*(st.col==='fade'?1-p.seen*.7:1)*(1-.75*dim*(1-p.h));ctx.beginPath();ctx.arc(x,y,((sp?1.6:.9)+a*(.5+p.imp*2.4))*(1+.7*p.g),0,6.283);ctx.fill()}
  // 字（加一圈底色外框，壓在點上也讀得清楚）
  const txt=(str,x,y,font,al)=>{if(al<.02)return;ctx.globalAlpha=al;ctx.font=font;ctx.lineWidth=3;ctx.strokeStyle=bgc;ctx.strokeText(str,x,y);ctx.fillStyle=fg;ctx.fillText(str,x,y)};
@@ -350,4 +350,5 @@ build();ui();enterMode();requestAnimationFrame(frame);
 <script src="edit.js"></script>
 <script src="eval.js"></script>
 <script src="more.js"></script>
+<script src="topics.js"></script>
 <script src="menu.js"></script></body></html>

@@ -145,15 +145,6 @@ function settingsPane(back) {
 }
 
 // ---------- 給其他功能用（整合判斷、問答）：照模式選 AI，失敗換下一個 ----------
-window.aiGemini = async (parts, tools) => {   // 網址、影片、截圖用（more.js）
-  if (why('gemini')) throw new Error('請先在 AI 設定貼上 Gemini 金鑰');
-  const body = { contents: [{ role: 'user', parts }] }; if (tools) body.tools = tools;
-  const run = () => post(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(S.gemini.model)}:generateContent`, { 'x-goog-api-key': S.gemini.key }, body);
-  let r; try { r = await run(); } catch (e) { if (!/（50[23]）|high demand/i.test(e.message)) throw e; await new Promise(z => setTimeout(z, 6000)); r = await run(); }
-  const c = (r.candidates || [])[0] || {}, text = ((c.content && c.content.parts) || []).filter(x => !x.thought).map(x => x.text || '').join('');
-  if (!text) throw new Error('AI 沒有回答' + (c.finishReason ? '（' + c.finishReason + '）' : ''));
-  const u = r.usageMetadata || {}; record('gemini', { tin: u.promptTokenCount || 0, tout: (u.candidatesTokenCount || 0) + (u.thoughtsTokenCount || 0) }); return text;
-};
 window.aiAsk = async p => {
   const list = S.mode === 'manual' ? (why(S.pick) ? [] : [S.pick]) : ready().filter(c => c !== 'vertex' || estimate(p)[1] <= S.vertex.ask);
   if (!list.length) throw new Error('沒有可以用的 AI（按上方「AI」設定）');

@@ -1,4 +1,4 @@
-// 其他功能（07 第五節「11/10 之後」，06 第 3～5 輪）：回想、問答時知識網亮起來、每月成長、導覽、圈選整理、時光機、網址／影片／截圖
+// 其他功能（07 第五節「11/10 之後」，06 第 3～5 輪）：回想、問答時知識網亮起來、每月成長、導覽、圈選整理、時光機（網址、截圖 11/7 拿掉，06 第 36 輪）
 (() => {
 const KN = window.KN, { h, toast, qtip, openPane, pbody, pane } = KN, X = () => window.KN2;
 const E = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -32,7 +32,7 @@ new MutationObserver(() => { if (KNX.glow && !['問答', '圈選整理'].include
 
 // ---------- 回顧面板：最近消化｜每月成長｜導覽｜時光機 ----------
 const RV = { recent: '最近消化', grow: '每月成長', tour: '導覽', tm: '時光機' };
-const tabsRow = cur => `<div class="rvtabs">${Object.keys(RV).map(k => `<button class="c${k === cur ? ' on' : ''}" data-rv="${k}">${RV[k]}</button>`).join('')}</div>`;
+const tabsRow = cur => `<nav class="ktabs">${Object.keys(RV).map(k => `<button class="${k === cur ? 'on' : ''}" data-rv="${k}">${RV[k]}</button>`).join('')}</nav>`;
 const bindTabs = () => pbody.querySelectorAll('[data-rv]').forEach(b => b.onclick = () => review(b.dataset.rv));
 window.knRecentTabs = () => { pbody.insertAdjacentHTML('afterbegin', tabsRow('recent')); bindTabs(); };   // layer2 的最近消化畫好後呼叫
 window.knReview = k => review(k);
@@ -47,10 +47,10 @@ function growPane() {
   const thisM = by[cur] || [], tops = {}; thisM.forEach(p => { const t = topOf(p); tops[t] = (tops[t] || 0) + 1; });
   const firstM = {}; ps.forEach(p => { const t = topOf(p), m = srcDate(p).slice(0, 7); if (m && (!firstM[t] || m < firstM[t])) firstM[t] = m; });
   const newT = Object.keys(firstM).filter(t => firstM[t] === cur);
-  openPane('最近消化', tabsRow('grow') + `<p>累積 <b>${ps.length}</b> 個知識點、<b>${K.sources.filter(s => !s.demo).length}</b> 份來源。這個月新增 <b>${thisM.length}</b> 個點。</p>
-   ${ms.length ? `<div style="overflow-x:auto"><svg class="gbar" width="${W}" height="152" viewBox="0 0 ${W} 152">${bars}</svg></div>` : ''}
-   ${Object.keys(tops).length ? `<p class="note">這個月長最多：${Object.entries(tops).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([t, n]) => `${E(t)}（+${n}）`).join('、')}</p>` : ''}
-   ${newT.length ? `<p class="note">這個月的新主題：${newT.map(E).join('、')}</p>` : ''}`);
+  openPane('回顧', tabsRow('grow') + `<div class="kstat"><div><b>${ps.length}</b><span>累積知識點</span></div><div><b>${K.sources.filter(s => !s.demo).length}</b><span>來源</span></div><div><b>${thisM.length}</b><span>這個月新增</span></div></div>
+   ${ms.length ? `<div class="ksec">每月新增</div><div class="kc still" style="overflow-x:auto"><svg class="gbar" width="${W}" height="152" viewBox="0 0 ${W} 152">${bars}</svg></div>` : ''}
+   ${Object.keys(tops).length ? `<div class="ksec">這個月長最多</div><div class="kgrid">${Object.entries(tops).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([t, n]) => `<div class="kc still"><div class="t">${E(t)}</div><div class="s">＋${n} 個點</div></div>`).join('')}</div>` : ''}
+   ${newT.length ? `<div class="ksec">這個月的新主題</div><div class="kgrid">${newT.map(t => `<div class="kc still"><div class="t">${E(t)}</div></div>`).join('')}</div>` : ''}`);
   bindTabs();
 }
 
@@ -60,7 +60,7 @@ const tourDir = () => KN.root.getDirectoryHandle('04-知識網', { create: true 
 async function tourData() { try { return JSON.parse(await readF(await tourDir(), '導覽.json')); } catch (e) { return {}; } }
 function tourList() {
   const ps = KN.realPts(), tops = K.topics.filter(t => !t.parent && ps.some(p => topOf(p) === t.id));
-  openPane('最近消化', tabsRow('tour') + (tops.length ? tops.map(t => `<p class="rcs" data-t="${E(t.id)}">${E(t.name)}<span class="note">　${ps.filter(p => topOf(p) === t.id).length} 點</span></p>`).join('') : '<p>還沒有主題。</p>'));
+  openPane('回顧', tabsRow('tour') + (tops.length ? `<div class="ksec">選一個主題，一站一站帶你看${qtip('最後一站會告訴你這個主題還缺什麼。')}</div><div class="kgrid">` + tops.map(t => `<div class="kc" tabindex="0" data-t="${E(t.id)}"><div class="t">${E(t.name)}</div><div class="s">${ps.filter(p => topOf(p) === t.id).length} 點・${K.topics.filter(s => s.parent === t.id).length} 個子主題</div></div>`).join('') + '</div>' : '<p class="kempty">還沒有主題。</p>'));
   bindTabs(); pbody.querySelectorAll('[data-t]').forEach(b => b.onclick = () => tourStart(b.dataset.t));
 }
 async function tourStart(tid) {
@@ -77,7 +77,7 @@ async function tourStart(tid) {
     } catch (e) { toast('AI 沒成功，先照原本順序走：' + e.message, 6000); }
   }
   const order = [...d.order.filter(id => all.some(p => p.id === id)), ...all.filter(p => p.priv).map(p => p.id)];
-  openPane('導覽：' + tid, `${d.sign ? `<blockquote>${E(d.sign)}</blockquote>` : ''}<p class="note">共 ${order.length} 站${d.gap ? '，最後一站是「缺口」' : ''}。</p><div class="row"><button class="go" id="twalk">帶我走一遍</button><button class="go sub" id="tback">← 導覽</button></div>`);
+  openPane('導覽：' + tid, `<div class="row"><button class="go sub" id="tback">← 導覽</button></div><div class="kc still">${d.sign ? `<div class="t">${E(d.sign)}</div>` : ''}<div class="s">共 ${order.length} 站${d.gap ? '，最後一站是「缺口」' : ''}</div></div><div class="row"><button class="go" id="twalk">帶我走一遍</button></div>`);
   pbody.querySelector('#tback').onclick = () => tourList();
   pbody.querySelector('#twalk').onclick = () => { KN.closePane(); TOUR = { order, gap: d.gap, i: 0, name: tid }; tourStep(); };
 }
@@ -174,11 +174,11 @@ async function tmSave(withPic, name) {
 (async () => { const t0 = Date.now(); while (Date.now() - t0 < 15000 && !(KN.root && K.points.some(p => p._path))) await new Promise(r => setTimeout(r, 1000));
   if (!KN.root || !K.points.some(p => p._path)) return; try { const d = await tmDir(); await d.getFileHandle(today() + '.json'); } catch (e) { tmSave(false).catch(() => {}); } })();
 async function tmPane() {
-  if (!KN.root) { openPane('最近消化', tabsRow('tm') + '<p>還沒連上資料夾。</p>'); bindTabs(); return; }
+  if (!KN.root) { openPane('回顧', tabsRow('tm') + '<p class="kempty">還沒連上資料夾。</p>'); bindTabs(); return; }
   const d = await tmDir(), days = []; for await (const [n, fh] of d.entries()) if (n.endsWith('.json')) days.push(n.slice(0, -5));
   days.sort().reverse(); const pics = new Set(); for await (const n of d.keys()) if (n.endsWith('.png')) pics.add(n.slice(0, -4));
-  openPane('最近消化', tabsRow('tm') + `<div class="row"><input type="text" id="tmname" placeholder="名稱（可不填）" style="flex:1;min-width:0"><button class="go" id="tmsave">現在存一張</button>${qtip('存下今天的知識網（資料＋圖片）。每天第一次打開也會自動存資料。')}</div>
-   ${days.map(x => `<p class="rcs" data-d="${x}">${x}${pics.has(x) ? '　🖼' : ''}</p>`).join('') || '<p class="note">還沒有存過。</p>'}`);
+  openPane('回顧', tabsRow('tm') + `<div class="row"><input type="text" id="tmname" placeholder="名稱（可不填）" style="flex:1;min-width:0"><button class="go" id="tmsave">現在存一張</button>${qtip('存下今天的知識網（資料＋圖片）。每天第一次打開也會自動存資料。')}</div>
+   ${days.length ? `<div class="ksec">以前的知識網</div><div class="kgrid">${days.map(x => `<div class="kc" tabindex="0" data-d="${E(x)}"><div class="t">${E(x.slice(0, 10))}</div><div class="s">${E(x.slice(11) || '自動存')}</div>${pics.has(x) ? '<span class="kchip">有圖片</span>' : ''}</div>`).join('')}</div>` : '<p class="kempty">還沒有存過。</p>'}`);
   bindTabs();
   pbody.querySelector('#tmsave').onclick = async () => { const nm = pbody.querySelector('#tmname').value.trim(); KN.closePane(); await new Promise(r => setTimeout(r, 400)); await tmSave(true, nm); toast('已存今天的知識網'); };
   pbody.querySelectorAll('[data-d]').forEach(b => b.onclick = () => tmView(b.dataset.d, pics.has(b.dataset.d)));
@@ -198,30 +198,10 @@ async function tmView(day, pic) {
   if (pic) bar.querySelector('#tmpic').onclick = async () => { const f = await (await d.getFileHandle(day + '.png')).getFile(); window.open(URL.createObjectURL(f)); };
 }
 
-// ---------- 丟東西進去：網址（網頁、YouTube）、截圖 → AI 整理成文字 → 照平常拆 ----------
-const fill = (title, text) => { const T = pbody.querySelector('#dtitle'), Xt = pbody.querySelector('#dtext'); if (!T || !Xt) return; T.value = title; Xt.value = text; T.dispatchEvent(new Event('input')); Xt.dispatchEvent(new Event('input')); };
-const split1 = t => { const L = t.trim().split('\n'), title = L[0].replace(/^#+\s*|^標題[:：]\s*/g, '').trim().slice(0, 60); return [title, L.slice(1).join('\n').trim()]; };
-function addUrlRow() {
-  if (ptitle.textContent !== '丟東西進去' || pbody.querySelector('#urlrow') || !pbody.querySelector('#dtext')) return;
-  pbody.querySelector('#dtext').insertAdjacentHTML('afterend', `<div class="row" id="urlrow"><input type="text" id="durl" placeholder="或貼網址（網頁、YouTube）" style="flex:1;min-width:0"><button class="go sub" id="durlgo">讀網址</button><label class="go sub" style="cursor:pointer">截圖／圖片<input type="file" id="dimg" accept="image/*" multiple hidden></label>${qtip('AI 會把網頁、影片或圖片整理成文字放到上面，再照平常拆。')}</div>`);
-  const busy = async (b, fn) => { if (pbody.querySelector('#dpriv').checked) return toast('勾了私人就不送 AI'); const t = b.textContent; b.textContent = '讀取中…'; b.disabled = true; try { await fn(); } catch (e) { toast('沒成功：' + e.message, 7000); } b.textContent = t; b.disabled = false; };
-  pbody.querySelector('#durlgo').onclick = e => busy(e.target, async () => {
-    const u = pbody.querySelector('#durl').value.trim(); if (!/^https?:\/\//.test(u)) throw new Error('請貼完整網址（http 開頭）');
-    const ask = '請用繁體中文，把這個內容完整整理成一篇文章：保留重點、數字、例子、步驟，不要加自己的評論。第一行只寫標題。';
-    const yt = /youtube\.com|youtu\.be/.test(u);
-    const t = await aiGemini(yt ? [{ file_data: { file_uri: u } }, { text: ask }] : [{ text: ask + '\n網址：' + u }], yt ? null : [{ url_context: {} }]);
-    const [ti, body] = split1(t); fill(ti, `來源：${u}\n\n${body}`); toast('讀好了，看一下再按「交給 AI 拆」');
-  });
-  pbody.querySelector('#dimg').onchange = e => { const fs = [...e.target.files].slice(0, 5); if (!fs.length) return; busy(e.target.parentElement, async () => {
-    const parts = await Promise.all(fs.map(f => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res({ inline_data: { mime_type: f.type || 'image/png', data: String(r.result).split(',')[1] } }); r.onerror = rej; r.readAsDataURL(f); })));
-    const t = await aiGemini([...parts, { text: '請用繁體中文：先把圖片裡的文字完整抄出來，再用幾句話補充圖片在講什麼。第一行只寫標題。' }]);
-    const [ti, body] = split1(t); fill(ti, body); toast('讀好了，看一下再按「交給 AI 拆」'); }); };
-}
-new MutationObserver(addUrlRow).observe(pbody, { childList: true });
-
-// ---------- 新長的點：綠色光圈（7 天內）----------
+// ---------- 新長的點：光圈（7 天內；顏色、開關在外觀面板）----------
 function ringNew() {
-  const now = Date.now(); ctx.save(); ctx.strokeStyle = '#5FE0A0'; ctx.lineWidth = 1.4; ctx.globalAlpha = .85;
+  if (KNX.ringOn === false) return;
+  const now = Date.now(); ctx.save(); ctx.strokeStyle = KNX.ring || '#5FE0A0'; ctx.lineWidth = 1.4; ctx.globalAlpha = .85;
   for (const p of S) { if (p.demo || !p.created || now - p.created > 7 * 864e5) continue; const T = TP[p.t];
     if (st.mode === 'star' ? ttOf(T) < .15 : ptA(T) < .3) continue; const [x, y] = toS(...pos(p)); if (x < -10 || y < -10 || x > W + 10 || y > H + 10) continue;
     ctx.beginPath(); ctx.arc(x, y, 6, 0, 6.283); ctx.stroke(); }

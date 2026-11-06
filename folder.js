@@ -99,13 +99,19 @@ table.ib{width:100%;border-collapse:collapse;font-size:13px}.ib th{text-align:le
 `));
 const fbar = h('div', { id: 'fbar', className: 'g' }, '<button class="c" id="addBtn">＋ 丟東西進去</button><button class="c" id="newBtn">＋ 知識點</button><button class="c" id="folderBtn">連上資料夾</button>');
 document.getElementById('ui').append(fbar);
-const pane = h('section', { id: 'pane', hidden: true }, '<header><b id="ptitle"></b><button class="x" title="關閉">×</button></header><div id="pbody"></div>');
+const pane = h('section', { id: 'pane', hidden: true }, '<header><b id="ptitle"></b><button class="psz" id="psz" title="放大成大框" aria-label="切換大框／小框"></button><button class="x" title="關閉">×</button></header><div id="pbody"></div>');
 const toastEl = h('div', { id: 'toast' });
 document.body.append(pane, toastEl);
 const pbody = pane.querySelector('#pbody');
 pane.querySelector('.x').onclick = () => closePane();
+pane.querySelector('#psz').onclick = () => { const k = pane.dataset.k, P = store.get('psize', {}); P[k] = isSide(k) ? 'big' : 'side'; store.set('psize', P); pane.classList.toggle('side', P[k] === 'side'); if (P[k] === 'big') card.hidden = true; };
 const toast = (t, ms = 3500) => { toastEl.textContent = t; toastEl.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => toastEl.style.display = 'none', ms); };
-function openPane(title, html) { pane.querySelector('#ptitle').textContent = title; pbody.innerHTML = html; pbody.scrollTop = 0; pane.hidden = false; paneOpen = true; card.hidden = true; }
+// 每個面板都能在「小框（右側，可拖可拉）」和「大框（置中）」之間切換（標題列 ⤢），各自記住；預設：丟東西、拆解、新增知識點、圈選整理是大框（11/7 她選）
+const BIG = ['丟東西', '新增知識點', '圈選整理', '資料夾是空的'];
+const kindOf = (title, html) => /data-rv=|id="rb"/.test(html) || /^導覽/.test(title) ? '回顧' : /^(丟東西進去|交給 AI 拆|先看拆解)/.test(title) ? '丟東西' : title;
+const isSide = k => (store.get('psize', {})[k] || (BIG.includes(k) ? 'big' : 'side')) === 'side';
+const SIDE = { includes: title => isSide(kindOf(title, '')) };   // 給舊的程式用（卡片要不要一起關）
+function openPane(title, html) { const k = kindOf(title, html); pane.dataset.k = k; pane.classList.toggle('side', isSide(k)); pbody.className = ''; pane.querySelector('#ptitle').textContent = title; pbody.innerHTML = html; pbody.scrollTop = 0; pane.hidden = false; paneOpen = true; if (!isSide(k)) card.hidden = true; }   // 小框開著時卡片可以一起留著（會自動排在旁邊）
 function closePane() { pane.hidden = true; paneOpen = false; pbody.classList.remove('rvmode'); }
 const folderBtn = document.getElementById('folderBtn');
 function setFolderBtn() { folderBtn.textContent = root ? '資料夾：' + root.name : '連上資料夾'; folderBtn.classList.toggle('on', !!root); }
@@ -237,7 +243,7 @@ async function connect(fromClick) {
 }
 folderBtn.onclick = async () => {
   if (!root) { await connect(true); return; }
-  openPane('知識網資料夾', `<p>現在連著：<b>${esc(root.name)}</b></p>
+  openPane('知識網資料夾', `<div class="kc still"><div class="s">現在連著</div><div class="t">${esc(root.name)}</div></div>
    <div class="row"><button class="go sub" id="reload">重新讀一次</button><button class="go sub" id="change">換一個資料夾</button></div>`);
   pbody.querySelector('#reload').onclick = () => { closePane(); load(); };
   pbody.querySelector('#change').onclick = async () => { closePane(); root = null; await idb('readwrite', s => s.delete('root')).catch(() => {}); setFolderBtn(); connect(true); };
@@ -313,18 +319,30 @@ async function inboxPane() {
   const tags = [...new Set(items.map(i => i.tag).filter(Boolean))];
   const th = (k, t) => `<th data-s="${k}">${t}${sort.k === k ? (sort.d > 0 ? ' ▲' : ' ▼') : ''}</th>`;
   openPane('丟東西進去', `
-   <div class="row"><input type="text" id="dtitle" placeholder="標題"></div>
-   <textarea id="dtext" rows="7" placeholder="貼上文章、AI 的回答、影片分析"></textarea>
-   <div class="row"><label><input type="checkbox" id="dpriv"> 私人</label>${qtip('勾了就不送給 AI，只把原文存進知識網。')}<span style="flex:1"></span>
-    <button class="go sub" id="keep">先存著</button>${qtip('放進下面的待拆清單，之後想拆再拆。')}<button class="go" id="next">交給 AI 拆</button>${qtip('貼的是原文：下一步複製給 AI。貼的是 AI 拆好的回答：直接看拆解。')}</div>
+   <div class="row"><input type="text" id="dtitle" placeholder="標題（可不填）"></div>
+   <textarea id="dtext" rows="7" placeholder="貼上要拆的內容，或 AI 拆好的回答"></textarea>
+   <div class="row"><label><input type="checkbox" id="dpriv"> 私人</label><span style="flex:1"></span>
+    <button class="go sub" id="keep">先存著</button><button class="go sub" id="aiAuto">讓 AI 自動拆</button><button class="go" id="next">複製給 AI</button></div>
+   <p class="note" id="dbad" hidden>回答格式不完整，請 AI 再回一次。</p>
    <div class="ibhead"><b>待拆 ${items.length}</b><span class="cols">${[['from', '來源'], ['date', '日期'], ['len', '字數'], ['tag', '標籤']].map(([k, t]) => `<label><input type="checkbox" data-c="${k}"${cols[k] ? ' checked' : ''}> ${t}</label>`).join('')}</span></div>
-   ${items.length ? `<table class="ib"><thead><tr><th></th>${th('title', '標題')}${cols.from ? th('from', '來源') : ''}${cols.date ? th('date', '日期') : ''}${cols.len ? th('len', '字數') : ''}${cols.tag ? th('tag', '標籤' + qtip('同類的文章打一樣的標籤，下面按標籤就能一次勾起來。')) : ''}</tr></thead><tbody>
+   ${items.length ? `<table class="ib"><thead><tr><th></th>${th('title', '標題')}${cols.from ? th('from', '來源') : ''}${cols.date ? th('date', '日期') : ''}${cols.len ? th('len', '字數') : ''}${cols.tag ? th('tag', '標籤') : ''}</tr></thead><tbody>
     ${items.map((it, i) => `<tr data-i="${i}"><td><input type="checkbox" class="pick"${it.priv ? ' disabled title="私人"' : ''}></td><td><a class="open">${esc(it.title)}</a>${it.priv ? ' <small>私人</small>' : ''}</td>${cols.from ? `<td>${it.from}</td>` : ''}${cols.date ? `<td>${it.date}</td>` : ''}${cols.len ? `<td>${it.body.length}</td>` : ''}${cols.tag ? `<td><input type="text" class="tag" list="tagl" value="${esc(it.tag)}"></td>` : ''}</tr>`).join('')}
    </tbody></table>${dl('tagl', tags)}
-   <div class="row"><button class="go" id="multi" disabled>勾選的一起拆</button>${qtip('勾選的文章合成一份給 AI，只要貼一次；太長會自動分幾次。')}<button class="go sub" id="del" disabled>刪除勾選</button>${tags.length ? `${tags.map(t => `<button class="go sub tg">${esc(t)}</button>`).join('')}` : ''}</div>` : ''}`);
+   <div class="row"><button class="go" id="multi" disabled>勾選的一起拆</button><button class="go sub" id="del" disabled>刪除勾選</button>${tags.length ? `${tags.map(t => `<button class="go sub tg">${esc(t)}</button>`).join('')}` : ''}</div>` : ''}
+   <div class="row"><button class="go sub" id="dnew">＋ 手動加一個知識點</button></div>`);
   const T = pbody.querySelector('#dtitle'), X = pbody.querySelector('#dtext'), Pv = pbody.querySelector('#dpriv'), N = pbody.querySelector('#next');
   T.value = draft.title; X.value = draft.text; Pv.checked = draft.priv;
-  const sync = () => { draft.title = T.value.trim(); draft.text = X.value; draft.priv = Pv.checked; N.textContent = draft.priv ? '存進知識網（不送 AI）' : '交給 AI 拆'; };
+  const Kp = pbody.querySelector('#keep'), Au = pbody.querySelector('#aiAuto'), Bad = pbody.querySelector('#dbad'), PvL = Pv.closest('label');
+  let kind = 'raw';   // raw＝要拆的內容；ans＝AI 拆好的回答（工具規定的 JSON 格式）；bad＝像回答但格式壞了（06 第 36 輪）
+  const sync = () => {
+    draft.title = T.value.trim(); draft.text = X.value; draft.priv = Pv.checked;
+    kind = 'raw';
+    if (/"(知識點|points)"\s*:/.test(draft.text)) { const keep = job; job = { arts: [{ title: '', text: draft.text }] }; kind = parseAnswer(draft.text, true) ? 'ans' : 'bad'; job = keep; }
+    const raw = kind === 'raw';
+    N.textContent = kind === 'ans' ? '看拆解' : draft.priv && raw ? '存進知識網（不送 AI）' : '複製給 AI';
+    N.disabled = kind === 'bad'; Bad.hidden = kind !== 'bad';
+    Au.hidden = !raw || draft.priv; Kp.hidden = !raw; PvL.hidden = !raw;
+  };
   [T, X, Pv].forEach(e => e.oninput = e.onchange = sync); sync();
   const ready = () => { sync(); if (!draft.text.trim()) { toast('還沒有貼上內容'); return false; } if (!draft.title) draft.title = draft.text.trim().split('\n')[0].replace(/^#+\s*/, '').slice(0, 30); return true; };
   pbody.querySelector('#keep').onclick = async () => {
@@ -336,10 +354,12 @@ async function inboxPane() {
   N.onclick = () => {
     if (!ready()) return;
     const a = { title: draft.title, text: draft.text, priv: draft.priv, inbox: draft.inbox };
+    if (kind === 'ans') { a.priv = false; if (!asAnswer(a)) toast('回答格式不完整，請 AI 再回一次。', 6000); return; }
     if (a.priv) { job = { arts: [a] }; saveJob([]); return; }
-    if (asAnswer(a)) return;
-    startJob([a]);
+    startJob([a], 'copy');
   };
+  Au.onclick = () => { if (!ready()) return; startJob([{ title: draft.title, text: draft.text, priv: false, inbox: draft.inbox }], 'ai'); };
+  pbody.querySelector('#dnew').onclick = () => document.getElementById('newBtn').click();
   pbody.querySelectorAll('[data-c]').forEach(c => c.onchange = () => { cols[c.dataset.c] = c.checked; store.set('ibCols', cols); inboxPane(); });
   pbody.querySelectorAll('[data-s]').forEach(c => c.onclick = () => { const k = c.dataset.s; store.set('ibSort', { k, d: sort.k === k ? -sort.d : (k === 'title' || k === 'tag' ? 1 : -1) }); inboxPane(); });
   const picked = () => [...pbody.querySelectorAll('tr[data-i]')].filter(r => r.querySelector('.pick').checked).map(r => items[+r.dataset.i]);
@@ -367,11 +387,11 @@ function asAnswer(a) {
   if (!a.title || /^[`{\s]/.test(a.title)) a.title = `${r.points[0].name} 等 ${r.points.length} 點`;
   job.r = r; step3(); return true;
 }
-function startJob(arts) {
+function startJob(arts, how) {
   const js = arts.filter(a => /"(知識點|points)"\s*:/.test(a.text));
   if (js.length && arts.length === 1) { if (asAnswer(arts[0])) return; }
   else if (js.length) { toast('AI 拆好的回答要一篇一篇看，這次先拆其他的', 6000); arts = arts.filter(a => !js.includes(a)); if (!arts.length) return; }
-  job = { queue: batches(arts), bi: 0 }; job.total = job.queue.length; nextBatch(); }
+  job = { queue: batches(arts), bi: 0, how }; job.total = job.queue.length; nextBatch(); }
 function nextBatch() { job.arts = job.queue[job.bi]; job.answer = ''; step2(); }
 
 function buildPrompt() {
@@ -423,6 +443,10 @@ function step2() {
   pbody.querySelector('#review').onclick = () => go(false);
   pbody.querySelector('#direct').onclick = () => go(true);
   if (window.aiSocket) aiSocket(prompt, ans, () => go(false));
+  // 從「丟東西進去」按「複製給 AI」→ 直接複製；按「讓 AI 自動拆」→ 直接開始（只有第一次）
+  const how = job.how; job.how = null;
+  if (how === 'copy') pbody.querySelector('#copy').click();
+  if (how === 'ai') { const b = pbody.querySelector('#aiGo'); if (b && b.textContent === 'AI 拆' && !b.disabled) b.click(); else toast('還沒設定 AI，可以先按「設定 AI」，或用複製的方式', 6000); }
 }
 window.KN = { h, toast, qtip, openPane, closePane, pbody, pane, step2, load, writeFile, realPts, mdHtml, markQuote, RTYPES, buildPrompt, parseAnswer, step3, get job() { return job; }, get HL() { return HL; }, get root() { return root; } }; // 給 ai.js、layer2.js 用
 function parseAnswer(t, quiet) {
