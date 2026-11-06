@@ -429,11 +429,13 @@ function step2() {
   const prompt = window.knPromptExtra ? knPromptExtra(buildPrompt()) : buildPrompt();
   openPane('交給 AI 拆' + (job.total > 1 ? `（第 ${job.bi + 1}／${job.total} 次）` : '') + '：' + job.arts.map(a => a.title).join('、'), `
    <div class="row"><button class="go" id="copy">複製給 AI 的內容</button><button class="go sub" id="back">← 待拆</button><span class="note">${prompt.length} 字</span></div>
-   <textarea id="ans" rows="12" placeholder="貼上 AI 的回答"></textarea>
+   <textarea id="ans" rows="12" placeholder="貼上 AI 的回答，貼上就自動進入拆解"></textarea>
    <div class="row"><button class="go" id="review">先看拆解</button><button class="go sub" id="direct">直接放進去</button>${qtip('不看拆解，直接存進知識網。')}</div>
    <details><summary class="note">給 AI 的內容</summary><textarea id="pr" rows="10" readonly></textarea></details>`);
   const pr = pbody.querySelector('#pr'), ans = pbody.querySelector('#ans'); pr.value = prompt; ans.value = job.answer || '';
   ans.oninput = () => job.answer = ans.value;
+  // 貼上 AI 的回答 → 自動進入拆解（14 介面定案；格式壞了只提醒一句）
+  ans.addEventListener('paste', () => setTimeout(() => { job.answer = ans.value; if (parseAnswer(ans.value, true)) go(false); else if (/"(知識點|points)"\s*:/.test(ans.value)) toast('回答格式不完整，請 AI 再回一次。', 6000); }, 0));
   pbody.querySelector('#back').onclick = inboxPane;
   pbody.querySelector('#copy').onclick = async () => {
     try { await navigator.clipboard.writeText(prompt); } catch (e) { pr.parentElement.open = true; pr.select(); document.execCommand('copy'); }
