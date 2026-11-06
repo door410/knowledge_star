@@ -424,7 +424,7 @@ function step2() {
   pbody.querySelector('#direct').onclick = () => go(true);
   if (window.aiSocket) aiSocket(prompt, ans, () => go(false));
 }
-window.KN = { h, toast, qtip, openPane, closePane, pbody, pane, step2, load, writeFile, realPts, mdHtml, markQuote, RTYPES, get HL() { return HL; }, get root() { return root; } }; // 給 ai.js、layer2.js 用
+window.KN = { h, toast, qtip, openPane, closePane, pbody, pane, step2, load, writeFile, realPts, mdHtml, markQuote, RTYPES, buildPrompt, parseAnswer, step3, get job() { return job; }, get HL() { return HL; }, get root() { return root; } }; // 給 ai.js、layer2.js 用
 function parseAnswer(t, quiet) {
   const say = quiet ? () => {} : toast;
   t = (t || '').trim(); if (!t) { say('還沒有貼上 AI 的回答'); return null; }
@@ -575,6 +575,7 @@ async function saveJob() {
   try {
     const kd = await root.getDirectoryHandle('02-知識', { create: true }), date = today(), stamp = Date.now().toString(36), byName = {};
     const pts = r.points.filter(p => p.on && p.name.trim());
+    if (window.knLog) knLog({ proposed: r.points.length, kept: pts.length });
     pts.forEach((p, i) => { p.id = 'k' + stamp + i; p.rels = []; byName[p.name.trim()] = p; });
     const resolve = x => byName[x] || (byId[x] && !byId[x].demo ? { id: x, name: byId[x].name, old: true } : null);
     r.links.filter(l => l.on).forEach(l => { let a = resolve(l.a), b = resolve(l.b); if (!a || !b || a === b) return; if (a.old) [a, b] = [b, a]; if (a.old) return; a.rels.push({ id: b.id, name: b.name, note: l.note, type: l.type }); });

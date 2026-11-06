@@ -90,7 +90,7 @@ const SV=store.get('settings',{});
 const st=Object.assign(JSON.parse(JSON.stringify(DEF)),SV);
 st.lines={norm:{...DEF.lines.norm,...(SV.lines?.norm||{})},sel:{...DEF.lines.sel,...(SV.lines?.sel||{})}};
 const save=()=>store.set('settings',st);
-const KNX={label:p=>p.name,fs:1,lw:1,la:1,dash:[],lineCol:null,dmp:.6,ms:1000}; // 編輯台（edit.js）會改這些
+const KNX={ff:'system-ui',fc:'',label:p=>p.name,fs:1,lw:1,la:1,dash:[],lineCol:null,dmp:.6,ms:1000}; // 編輯台（edit.js）會改這些
 const view={z:1,cx:0,cy:0,sel:null};
 const PAL=['#6EA8FF','#FF8FB1','#5FE0C1','#FFC46B','#C9A2FF','#8FD3FF','#F7A072'];
 const TEX=['band','swirl','moon','spots','shade'];
@@ -196,8 +196,8 @@ function pos(p){if(st.mode==='star')return[p.sx,p.sy];const T=TP[p.t],sb=T.subs[
 // ===== 滑過、選取的亮起效果（慢慢變化）=====
 let hover=null,dim=0,LIT=new Set();
 const relOf=p=>!p||p.hub?[]:(adj[p.id]||[]).filter(r=>r.x?st.lines.sel.x:st.lines.sel.in);
-function animate(){const F=hover||view.sel;const lit=new Set();if(F&&!F.hub){lit.add(F);relOf(F).forEach(r=>lit.add(r.p))}LIT=lit;let act=false;
- const dt=F?1:0;if(dim!==dt){dim+=(dt-dim)*.2;if(Math.abs(dt-dim)<.005)dim=dt;else act=true}
+function animate(){const F=hover||view.sel;const lit=new Set();if(F&&!F.hub){lit.add(F);relOf(F).forEach(r=>lit.add(r.p))}if(!F&&KNX.glow)KNX.glow.forEach(p=>lit.add(p));LIT=lit;let act=false;
+ const dt=F||(KNX.glow&&KNX.glow.size)?1:0;if(dim!==dt){dim+=(dt-dim)*.2;if(Math.abs(dt-dim)<.005)dim=dt;else act=true}
  for(const p of S){const th=lit.has(p)?1:0,tg=p===F?1:0;
   if(p.h!==th){p.h+=(th-p.h)*.2;if(Math.abs(th-p.h)<.005)p.h=th;else act=true}
   if(p.g!==tg){p.g+=(tg-p.g)*.22;if(Math.abs(tg-p.g)<.005)p.g=tg;else act=true}}
@@ -228,7 +228,7 @@ function drawStar(){const sel=view.sel,wc=FIT.star.wc;
 
 // ===== 畫簡約 =====
 function pointColor(p,lt){if(st.col==='topic')return TP[p.t].col;if(st.col==='age')return mix(st.age[0],st.age[1],p.age);if(st.col==='fade')return mix(st.fade[0],st.fade[1],p.seen);return st.mono[lt?'light':'dark']}
-function drawMin(){const lt=st.bg==='light',F=hover||view.sel,L=st.lines,fg=lt?'#45484E':'#ddd',bgc=lt?'#fff':'#000',mono=st.mono[lt?'light':'dark'];
+function drawMin(){const lt=st.bg==='light',F=hover||view.sel,L=st.lines,fg=KNX.fc||(lt?'#45484E':'#ddd'),bgc=lt?'#fff':'#000',mono=st.mono[lt?'light':'dark'];
  ctx.fillStyle=bgc;ctx.fillRect(0,0,W,H);
  const A=TP.map(T=>({s:subA(T),p:ptA(T),n:nmA(T)}));
  const line=(a,b)=>{const[x1,y1]=toS(...a),[x2,y2]=toS(...b);ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke()};
@@ -247,12 +247,12 @@ function drawMin(){const lt=st.bg==='light',F=hover||view.sel,L=st.lines,fg=lt?'
  // 字（加一圈底色外框，壓在點上也讀得清楚）
  const txt=(str,x,y,font,al)=>{if(al<.02)return;ctx.globalAlpha=al;ctx.font=font;ctx.lineWidth=3;ctx.strokeStyle=bgc;ctx.strokeText(str,x,y);ctx.fillStyle=fg;ctx.fillText(str,x,y)};
  ctx.textAlign='center';ctx.lineJoin='round';const dk=1-.6*dim;
- TP.forEach((T,ti)=>{const a=A[ti],[x,y]=toS(T.mx,T.my);txt(T.name,x,y+5,`600 ${14*KNX.fs}px system-ui`,(1-a.s)*dk);
-  if(a.s>.02){const[tx,ty]=toS(T.mx,T.my-T.mext+8);ctx.globalAlpha=a.s*.7*dk;ctx.font=`${12*KNX.fs}px system-ui`;ctx.fillStyle=lt?'#888':'#888';ctx.fillText(T.name,tx,ty);
-   T.subs.forEach(s=>{if(!s.name)return;const[sx,sy]=toS(s.cx,s.cy-s.rS-4);txt(s.name,sx,sy,`600 ${13*KNX.fs}px system-ui`,a.s*(1-.35*a.p)*dk)})}});
- for(const p of S){if(!p.name||p===F)continue;const al=Math.max(A[p.t].n*(1-.8*dim*(1-p.h)),p.h*dim*.9);if(al<.02)continue;const[x,y]=toS(...pos(p));if(x<-80||x>W+80||y<-20||y>H+20)continue;txt(KNX.label(p),x,y+15,`${11*KNX.fs}px system-ui`,al)}
- if(F&&F.name){const[x,y]=toS(...pos(F));txt(F.name,x,y+17,`600 ${12*KNX.fs}px system-ui`,1)}
- if(view.sel&&F===view.sel){ctx.globalAlpha=1;ctx.font=`${12*KNX.fs}px system-ui`;const[x0,y0]=toS(...pos(F));relOf(F).forEach(r=>{const[x,y]=toS(...pos(r.p)),mx=(x0+x)/2,my=(y0+y)/2,tw=ctx.measureText(r.note).width;ctx.fillStyle=lt?'#fffd':'#000d';ctx.fillRect(mx-tw/2-4,my-11,tw+8,16);ctx.fillStyle=fg;ctx.fillText(r.note,mx,my+1)})}
+ TP.forEach((T,ti)=>{const a=A[ti],[x,y]=toS(T.mx,T.my);txt(T.name,x,y+5,`600 ${14*KNX.fs}px ${KNX.ff}`,(1-a.s)*dk);
+  if(a.s>.02){const[tx,ty]=toS(T.mx,T.my-T.mext+8);ctx.globalAlpha=a.s*.7*dk;ctx.font=`${12*KNX.fs}px ${KNX.ff}`;ctx.fillStyle=KNX.fc||'#888';ctx.fillText(T.name,tx,ty);
+   T.subs.forEach(s=>{if(!s.name)return;const[sx,sy]=toS(s.cx,s.cy-s.rS-4);txt(s.name,sx,sy,`600 ${13*KNX.fs}px ${KNX.ff}`,a.s*(1-.35*a.p)*dk)})}});
+ for(const p of S){if(!p.name||p===F)continue;const al=Math.max(A[p.t].n*(1-.8*dim*(1-p.h)),p.h*dim*.9);if(al<.02)continue;const[x,y]=toS(...pos(p));if(x<-80||x>W+80||y<-20||y>H+20)continue;txt(KNX.label(p),x,y+15,`${11*KNX.fs}px ${KNX.ff}`,al)}
+ if(F&&F.name){const[x,y]=toS(...pos(F));txt(F.name,x,y+17,`600 ${12*KNX.fs}px ${KNX.ff}`,1)}
+ if(view.sel&&F===view.sel){ctx.globalAlpha=1;ctx.font=`${12*KNX.fs}px ${KNX.ff}`;const[x0,y0]=toS(...pos(F));relOf(F).forEach(r=>{const[x,y]=toS(...pos(r.p)),mx=(x0+x)/2,my=(y0+y)/2,tw=ctx.measureText(r.note).width;ctx.fillStyle=lt?'#fffd':'#000d';ctx.fillRect(mx-tw/2-4,my-11,tw+8,16);ctx.fillStyle=fg;ctx.fillText(r.note,mx,my+1)})}
  ctx.globalAlpha=1}
 
 // ===== 每一格畫面：有東西在動才重畫，靜止時不耗電 =====
@@ -347,4 +347,7 @@ build();ui();enterMode();requestAnimationFrame(frame);
 <script src="folder.js"></script>
 <script src="ai.js"></script>
 <script src="layer2.js"></script>
-<script src="edit.js"></script></body></html>
+<script src="edit.js"></script>
+<script src="eval.js"></script>
+<script src="more.js"></script>
+<script src="menu.js"></script></body></html>

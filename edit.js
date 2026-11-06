@@ -202,7 +202,9 @@ const rng = (k, cur, a, b, s) => `<input type="range" data-e="${k}" min="${a}" m
 const ck = (k, on, t) => `<label><input type="checkbox" data-e="${k}"${on ? ' checked' : ''}>${t}</label>`;
 const sec = (id, title, html) => `<details data-sec="${id}"${openSec.has(id) ? ' open' : ''}><summary>${title}</summary>${html}</details>`;
 async function edPane() {
-  const tabs = `<div class="row"><button class="c${edTab === 'custom' ? ' on' : ''}" data-et="custom">自訂</button><button class="c${edTab === 'hist' ? ' on' : ''}" data-et="hist">知識內容</button></div>`;
+  const tabs = `<div class="row"><button class="c${edTab === 'custom' ? ' on' : ''}" data-et="custom">自訂</button><button class="c${edTab === 'hist' ? ' on' : ''}" data-et="hist">知識內容</button><button class="c${edTab === 'eval' ? ' on' : ''}" data-et="eval">評估成績表</button></div>`;
+  window.knBindTabs = () => pbody.querySelectorAll('[data-et]').forEach(b => b.onclick = () => { edTab = b.dataset.et; edPane(); });
+  if (edTab === 'eval' && window.knEvalPane) return knEvalPane(tabs);
   if (edTab === 'hist') {
     const G = KN.root ? await groups() : [];
     openPane('編輯台', `<div class="edp">${tabs}${!KN.root ? '<p>還沒連上資料夾。</p>' : !G.length ? '<p>還沒有改過知識內容。</p>' :
@@ -260,5 +262,7 @@ async function edPane() {
   pbody.querySelectorAll('[data-et]').forEach(b => b.onclick = () => { edTab = b.dataset.et; edPane(); });
 }
 
+window.knEd = (t, s) => { if (t) edTab = t; if (s) openSec.add(s); edPane(); };
+window.knSetED = (k, v) => { ED[k] = v; saveED(); applyED(); };
 applyED(); build(); ui(); last = snap();
 })();

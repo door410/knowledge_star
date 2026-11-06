@@ -133,6 +133,7 @@ qaBtn.onclick = () => {
     const list = pts(); if (!list.length) { out.innerHTML = '<p>知識網裡還沒有你的知識點。</p>'; return; }
     out.innerHTML = '<p class="note">找資料中…</p>';
     const hits = await (await finder(list, true))(q, 8, true);
+    KNX.glow = new Set(hits.map(p => byId[p.id]).filter(Boolean)); dirty = true;   // 知識網上相關的點亮起來
     if (!hits.length) { out.innerHTML = '<p class="qa-a">資料裡沒有。</p>'; qaLast = { q, html: out.innerHTML }; return; }
     const title = p => (K.sources.find(s => s.id === srcOf(p)) || {}).title || '';
     const refs = '<div class="qa-l"><b>找到的知識點</b>' + hits.map((p, i) => `<p><button class="cite" data-id="${E(p.id)}">${i + 1}</button>${E(p.name)}<span class="note">　${E(title(p))}</span></p>`).join('') + '</div>';
@@ -161,14 +162,16 @@ function recentPane() {
   const all = KN.realPts(), srcs = K.sources.filter(s => !s.demo).sort((a, b) => (b.date || '').localeCompare(a.date || '') || a.title.localeCompare(b.title)).slice(0, 60);
   openPane('最近消化', srcs.length ? srcs.map(s => `<p class="rcs" data-s="${E(s.id)}"><span class="note">${E(s.date)}</span>　${E(s.title)}<span class="note">　${all.filter(p => srcOf(p) === s.id).length} 點</span></p>`).join('') : '<p>還沒有消化過的來源。</p>');
   pbody.querySelectorAll('[data-s]').forEach(b => b.onclick = () => srcPane(b.dataset.s));
+  if (window.knRecentTabs) knRecentTabs();
 }
+window.knRecent = recentPane;
 rcBtn.onclick = recentPane;
 async function srcPane(id) {
   const s = K.sources.find(x => x.id === id), list = KN.realPts().filter(p => srcOf(p) === id);
   let full = '';
   try { const dh = await (await KN.root.getDirectoryHandle('02-知識')).getDirectoryHandle(id); full = await (await (await dh.getFileHandle('原文.md')).getFile()).text(); } catch (e) {}
   const chk = list.map(p => quoteCheck(p.quote, full)), has = chk.filter(c => c !== 'none').length, ok = chk.filter(c => c === 'ok').length;
-  openPane(s ? s.title : id, `<div class="row"><button class="go sub" id="rb">← 最近消化</button><button class="go sub" id="rf">整篇原文</button>${has ? `<span class="note">原文對得上 ${ok}／${has}</span>${qtip('AI 引的原文，在你存的原文裡找不找得到（忽略空白和標點）。')}` : ''}</div><div id="rfull" hidden></div>
+  openPane(s ? s.title : id, `<div class="row"><button class="go sub" id="rb">← 最近消化</button><button class="go sub" id="rf">整篇原文</button>${has ? `<span class="note">原文對得上 ${ok}／${has}</span>${qtip('AI 引的原文，在你存的原文裡找不找得到（忽略空白和標點）。')}` : ''}</div>${(() => { const m = full.match(/^類型:\s*(.*)$/m); return `<p class="note">怎麼進來的：${m ? E(m[1].replace(/^"|"$/g, '')) : '—'}｜${E(s ? s.date : '')}</p>`; })()}<div id="rfull" hidden></div>
    ${list.map((p, i) => `<div class="rcp">${p.quote ? `<blockquote>${E(p.quote)}</blockquote>` : ''}<button class="nm" data-id="${E(p.id)}">${E(p.name)}</button><span class="qc ${chk[i]}">${QC[chk[i]]}</span><p>${E(p.desc)}</p>${p.why ? `<p class="note">${E(p.why)}</p>` : ''}</div>`).join('')}`);
   pbody.querySelector('#rb').onclick = recentPane;
   pbody.querySelectorAll('.nm').forEach(b => b.onclick = () => { KN.closePane(); goPoint(b.dataset.id); });
@@ -196,4 +199,5 @@ window.openCard = openCard = function (p, tab = 'desc') {
     const id = p.id; await KN.load(true); if (byId[id]) openCard(byId[id], 'mine'); toast('已存好想法');
   };
 };
+window.KN2 = { finder, bm25, quoteCheck, pts, pj, ensureVec, V, dot, srcOf };   // 給 eval.js 用
 })();
