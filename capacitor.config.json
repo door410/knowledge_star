@@ -1,0 +1,7 @@
+{
+  "appId": "tw.door410.knowledgestar",
+  "appName": "知識網",
+  "webDir": "www",
+  "android": { "allowMixedContent": false },
+  "plugins": { "SystemBars": { "insetsHandling": "disable" } }
+}

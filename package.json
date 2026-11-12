@@ -1,0 +1,37 @@
+{
+  "name": "knowledge-star",
+  "productName": "知識網",
+  "version": "0.1.0",
+  "private": true,
+  "description": "知識網（Android＋Windows）",
+  "author": "door410",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "build": "node scripts/build-web.mjs",
+    "test": "node tests/sync.test.cjs && node tests/zip.test.cjs",
+    "start": "npm run build && electron .",
+    "dist:win": "npm run build && electron-builder --win --publish never"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.6.0",
+    "@capacitor/filesystem": "^8.1.5"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.6.0",
+    "electron": "^45.2.3",
+    "electron-builder": "^26.18.0"
+  },
+  "build": {
+    "appId": "tw.door410.knowledgestar",
+    "productName": "知識網",
+    "electronDist": "node_modules/electron/dist",
+    "artifactName": "knowledge-star-setup.${ext}",
+    "directories": { "output": "release" },
+    "files": ["www/**", "electron/**", "package.json", "!node_modules/@capacitor/**"],
+    "npmRebuild": false,
+    "win": { "target": [{ "target": "nsis", "arch": ["x64"] }], "signAndEditExecutable": false },
+    "nsis": { "oneClick": false, "perMachine": false, "allowToChangeInstallationDirectory": true, "deleteAppDataOnUninstall": false, "shortcutName": "知識網" }
+  }
+}

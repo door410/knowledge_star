@@ -22,7 +22,7 @@ const ITEMS = {
   look: ['外觀', '', () => lookPane()],
   ed: ['編輯台', '知識網顯示什麼、卡片顯示什麼、快捷鍵、AI 怎麼拆', () => window.knEd && knEd('custom')],
   ai: ['AI 設定', '', () => { const b = document.querySelector('#aiBar button'); if (b) b.click(); }],
-  folder: ['連上資料夾', '', () => clk('folderBtn')],
+  folder: [window.KNAPP ? '同步與備份' : '連上資料夾', window.KNAPP ? 'Google 雲端硬碟同步、備份與還原、回收桶' : '', () => clk('folderBtn')],
   menu: ['整理選單', '拖曳來排選單、選哪些露出在左上', () => editMode()] };
 if (window.knTopics) ITEMS.topics = ['主題整理', '主題、子主題改名、搬到別的主題底下、合併', () => knTopics()];
 const DEFM = { groups: [{ name: '回顧', items: ['recent', 'grow', 'tour', 'tm'] }, { name: '整理', items: ['lasso', 'hist', ...(ITEMS.topics ? ['topics'] : [])] },

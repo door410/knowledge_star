@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="zh-Hant"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <title>知識網</title>
 <style>
 :root{--fg:#ddd;--sub:#888;--panel:#0d0e10ee;--line:#ffffff22;--chip:#111a;--chipOn:#eee;--chipOnFg:#000}
@@ -52,7 +52,7 @@ blockquote{margin:6px 0;padding:6px 10px;border-left:3px solid #E9C98A;backgroun
  <div class="g m" id="gPick"></div>
  <div class="g m"><label>強調色<input type="color" id="accent"></label></div>
  <span class="m" id="legend"></span>
- <div class="g"><button class="c" id="linesBtn">線 ▾</button><button class="c" id="demoBtn">顯示示範點</button></div>
+ <div class="g"><button class="c" id="linesBtn">線 ▾</button></div>
 </div>
 <div id="linePanel" hidden>
  <b class="m">平常顯示（放大到知識點時）</b>
@@ -84,7 +84,7 @@ const mix=(a,b,k)=>{const h=x=>[1,3,5].map(i=>parseInt(x.substr(i,2),16)),A=h(a)
 const rgbOf=h=>[1,3,5].map(i=>parseInt(h.substr(i,2),16)).join(',');
 
 // ===== 設定（所有選單的選擇都會記住）=====
-const DEF={mode:'star',bg:'dark',col:'mono',demo:true,starC:'#FFF1C9',starHi:'#FFFFFF',accent:'#9B7BFF',mono:{dark:'#C9CCD1',light:'#45484E'},age:['#FFB020','#5B6B8C'],fade:['#7CE0B5','#E07A7A'],tcol:{},
+const DEF={mode:'star',bg:'dark',col:'mono',demo:false,starC:'#FFF1C9',starHi:'#FFFFFF',accent:'#9B7BFF',mono:{dark:'#C9CCD1',light:'#45484E'},age:['#FFB020','#5B6B8C'],fade:['#7CE0B5','#E07A7A'],tcol:{},
  lines:{norm:{s:true,in:true,x:false},sel:{s:true,in:true,x:true}}};
 const SV=store.get('settings',{});
 const st=Object.assign(JSON.parse(JSON.stringify(DEF)),SV);
@@ -112,11 +112,6 @@ function build(){
  const sd={};K.sources.forEach(s=>sd[s.id]=Date.parse(s.date));
  const pts=K.points.filter(p=>subOf[p.topic]).map(p=>{const[ti,si]=subOf[p.topic];const created=Math.min(...p.src.map(id=>sd[id]));return{...p,t:ti,sub:si,n:p.src.length,created,seenAt:p.seen?Date.parse(p.seen):created,demo:false}});
  REAL=pts.length;
- if(st.demo){const DR=rng(7),now=Date.now();
-  tops.push({id:'demoA',name:'示範主題 A',demo:true,subs:[{name:''},{name:''},{name:''}],pts:[]},{id:'demoB',name:'示範主題 B',demo:true,subs:[{name:''},{name:''}],pts:[]});
-  const extra=[240,170,420,70,14];let k=0;
-  tops.forEach((T,ti)=>{for(let i=0;i<(extra[ti]??40);i++){const r=DR(),n=r<.75?1:r<.9?2:2+Math.ceil(DR()*4),created=now-DR()*400*864e5;
-   pts.push({id:'d'+k++,name:'',t:ti,sub:Math.floor(DR()*T.subs.length),n,created,seenAt:created+DR()*(now-created),demo:true})}})}
  pts.forEach(p=>tops[p.t].pts.push(p));
  const cs=pts.map(p=>p.created),mn=Math.min(...cs),mx=Math.max(...cs),now=Date.now(),smx=Math.max(1,...pts.map(p=>now-p.seenAt));
  pts.forEach(p=>{p.age=mx>mn?(mx-p.created)/(mx-mn):0;p.seen=(now-p.seenAt)/smx;p.imp=.2+.8*Math.min(1,(p.n-1)/5);p.h=0;p.g=0});
@@ -327,8 +322,7 @@ function ui(){document.body.className=st.mode==='min'&&st.bg==='light'?'light':'
  [['gMode','mode'],['gBg','bg'],['gCol','col']].forEach(([id,k])=>document.querySelectorAll('#'+id+' .c').forEach(b=>b.classList.toggle('on',b.dataset.v===st[k])));
  ['starC','starHi','accent'].forEach(id=>document.getElementById(id).value=st[id]);document.getElementById('legend').textContent=legendTx[st.col];
  linePanel.querySelectorAll('input').forEach(i=>i.checked=st.lines[i.dataset.g][i.dataset.k]);
- document.getElementById('demoBtn').classList.toggle('on',st.demo);
- document.getElementById('hint').textContent=(st.mode==='star'?'點主題會飛進去・拖曳星星會帶動旁邊的星，放開慢慢滑回・滾輪／兩指縮放・點星星看名稱':'點主題或子主題會飛進去，放大才出現下一層・拖曳知識點會牽動旁邊的點・「線」可選要顯示哪些線')+`　｜　真實知識點 ${REAL} 個（${K.sources.length} 份來源）`+(st.demo?'，其餘是示範點':'');
+ document.getElementById('hint').textContent=(st.mode==='star'?'點主題會飛進去・拖曳星星會帶動旁邊的星，放開慢慢滑回・滾輪／兩指縮放・點星星看名稱':'點主題或子主題會飛進去，放大才出現下一層・拖曳知識點會牽動旁邊的點・「線」可選要顯示哪些線')+`　｜　知識點 ${REAL} 個（${K.sources.length} 份來源）`;
  buildPick();dirty=true}
 function buildPick(){const pk=document.getElementById('gPick');pk.innerHTML='';const lt=st.bg==='light';
  const add=(lab,val,set)=>{const w=document.createElement('label');w.textContent=lab;const i=document.createElement('input');i.type='color';i.value=val;i.oninput=()=>{set(i.value);save();dirty=true};w.append(i);pk.append(w)};
@@ -339,16 +333,17 @@ function buildPick(){const pk=document.getElementById('gPick');pk.innerHTML='';c
 ['starC','starHi','accent'].forEach(id=>document.getElementById(id).oninput=e=>{st[id]=e.target.value;save();dirty=true});
 document.getElementById('linesBtn').onclick=e=>{const r=e.currentTarget.getBoundingClientRect();linePanel.style.left=Math.min(r.left,W-300)+'px';linePanel.style.top=(r.bottom+6)+'px';linePanel.hidden=!linePanel.hidden};
 linePanel.onchange=e=>{const i=e.target;st.lines[i.dataset.g][i.dataset.k]=i.checked;save();dirty=true};
-document.getElementById('demoBtn').onclick=()=>{st.demo=!st.demo;save();view.sel=null;hover=null;tip.style.display='none';card.hidden=true;build();ui();enterMode()};
 document.getElementById('home').onclick=()=>{view.sel=null;tip.style.display='none';home()};
 build();ui();enterMode();requestAnimationFrame(frame);
 </script>
-<script src="data/first-sources.js"></script>
+<script src="vfs.js"></script>
 <script src="folder.js"></script>
 <script src="ai.js"></script>
 <script src="layer2.js"></script>
 <script src="edit.js"></script>
-<script src="eval.js"></script>
 <script src="more.js"></script>
 <script src="topics.js"></script>
-<script src="menu.js"></script></body></html>
+<script src="menu.js"></script>
+<script src="zip.js"></script>
+<script src="sync-core.js"></script>
+<script src="sync.js"></script></body></html>

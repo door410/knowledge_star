@@ -1,9 +1,9 @@
 // ===== 知識網資料夾：直接讀寫雲端硬碟裡的 Markdown（Chrome／Edge 內建功能，不用安裝任何東西）=====
 // 資料夾結構：知識網資料／00-收件匣、02-知識（一個來源一個資料夾：原文.md＋每個知識點一個檔）、03-我的、04-知識網
 (() => {
-const FS_OK = 'showDirectoryPicker' in window;
+const APP = window.KNVFS;   // App 版（vfs.js）：資料在裝置裡，不用選資料夾
+const FS_OK = 'showDirectoryPicker' in window || !!APP;
 const DIRS = ['00-收件匣', '02-知識', '03-我的', '04-知識網'];
-const ORIG = JSON.parse(JSON.stringify(window.KNOWLEDGE));   // 第一版的 33 個點（搬家用）
 let root = null, sig = '', busy = false, paneOpen = false;
 const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
 const safe = s => String(s).replace(/[\\/:*?"<>|\r\n\t]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || '未命名';
@@ -80,6 +80,9 @@ body.light .nt{background:#00000008}.nt.hot{outline:1px solid #9B7BFF}.nt.off{op
 table.ib{width:100%;border-collapse:collapse;font-size:13px}.ib th{text-align:left;cursor:pointer;opacity:.7;font-weight:500;padding:4px 6px;border-bottom:1px solid #8884;white-space:nowrap}
 .ib td{padding:3px 6px;border-bottom:1px solid #8882}.ib a.open{cursor:pointer;text-decoration:underline dotted}#pane .ib input.tag{width:120px;padding:2px 6px}
 .frm label{display:block;margin:6px 0}.frm .two label{flex:1}
+#card .frm .two{display:flex;gap:8px}#card .frm .two label{min-width:0}
+#card .frm input[type=text],#card .frm textarea{display:block;width:100%;box-sizing:border-box;margin-top:2px;background:transparent;color:inherit;border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit}
+#card .frm textarea{resize:vertical}#card .row{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
 .cadd{display:flex;flex-wrap:wrap;gap:4px;margin-top:12px}.cadd input,.cadd select,.cadd button{background:transparent;color:inherit;border:1px solid var(--line);border-radius:6px;padding:4px 6px;font:inherit;font-size:13px}
 .cadd #cp{flex:1 1 100%}.cadd #cn{flex:1}.cadd option{background:var(--panel)}
 .q{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;border:1px solid #8888;font-size:11px;line-height:1;opacity:.6;cursor:help;position:relative;margin:0 4px;font-weight:400;vertical-align:middle}
@@ -114,7 +117,7 @@ const SIDE = { includes: title => isSide(kindOf(title, '')) };   // 給舊的程
 function openPane(title, html) { const k = kindOf(title, html); pane.dataset.k = k; pane.classList.toggle('side', isSide(k)); pbody.className = ''; pane.querySelector('#ptitle').textContent = title; pbody.innerHTML = html; pbody.scrollTop = 0; pane.hidden = false; paneOpen = true; if (!isSide(k)) card.hidden = true; }   // 小框開著時卡片可以一起留著（會自動排在旁邊）
 function closePane() { pane.hidden = true; paneOpen = false; pbody.classList.remove('rvmode'); }
 const folderBtn = document.getElementById('folderBtn');
-function setFolderBtn() { folderBtn.textContent = root ? '資料夾：' + root.name : '連上資料夾'; folderBtn.classList.toggle('on', !!root); }
+function setFolderBtn() { folderBtn.textContent = APP ? '同步與備份' : root ? '資料夾：' + root.name : '連上資料夾'; folderBtn.classList.toggle('on', !!root); }
 
 // ---------- 記住選過的資料夾（存在這台電腦的瀏覽器裡）----------
 function idb(mode, fn) {
@@ -208,20 +211,20 @@ async function load(quiet) {
   try {
     const { sig: s, files } = await scan(true); sig = s;
     const d = toKnowledge(files);
-    if (!d.points.length) { if (!quiet) offerMigrate(); return; }
     apply(d);
-    if (!quiet) toast(`已讀入資料夾：${d.sources.length} 份來源、${d.points.length} 個知識點`);
+    if (!quiet) toast(d.points.length ? `已讀入：${d.sources.length} 份來源、${d.points.length} 個知識點` : '還沒有知識點：按「丟東西進去」開始');
   } catch (e) { console.error(e); toast('讀資料夾時出錯：' + e.message, 6000); }
   finally { busy = false; }
 }
 // 工具開著時，資料夾裡有新增、刪除、修改，約 2 秒內同步（畫面隱藏時不檢查，不耗電）
 setInterval(async () => {
-  if (!root || busy || paneOpen || document.hidden) return;
+  if (APP || !root || busy || paneOpen || document.hidden) return;   // App 版不用一直檢查（改了會直接通知）
   try { const { sig: s } = await scan(false); if (s !== sig) load(true); } catch (e) {}
 }, 2000);
 
 // ---------- 連上資料夾 ----------
 async function connect(fromClick) {
+  if (APP) { await APP.ready; root = APP.root; for (const d of DIRS) await root.getDirectoryHandle(d, { create: true }); setFolderBtn(); await load(); return true; }
   if (!FS_OK) { toast('這個瀏覽器不能存取資料夾，請用 Chrome 或 Edge 打開', 6000); return false; }
   try {
     let x = root || await loadH();
@@ -242,42 +245,13 @@ async function connect(fromClick) {
   } catch (e) { if (e.name !== 'AbortError') toast('連不上資料夾：' + e.message, 6000); return false; }
 }
 folderBtn.onclick = async () => {
+  if (APP) { if (window.knSyncPane) knSyncPane(); return; }
   if (!root) { await connect(true); return; }
   openPane('知識網資料夾', `<div class="kc still"><div class="s">現在連著</div><div class="t">${esc(root.name)}</div></div>
    <div class="row"><button class="go sub" id="reload">重新讀一次</button><button class="go sub" id="change">換一個資料夾</button></div>`);
   pbody.querySelector('#reload').onclick = () => { closePane(); load(); };
   pbody.querySelector('#change').onclick = async () => { closePane(); root = null; await idb('readwrite', s => s.delete('root')).catch(() => {}); setFolderBtn(); connect(true); };
 };
-
-// ---------- 第一次：把第一版的 33 個知識點存進資料夾 ----------
-function offerMigrate() {
-  openPane('資料夾是空的', `<p>已經連上「${esc(root.name)}」，裡面還沒有知識點。</p>
-   <p>要把第一版的 <b>${ORIG.points.length} 個知識點</b>（2 份影片分析，Claude 代拆）存進去嗎？存好後，每個知識點都是一個 Markdown 檔，Obsidian 也打得開。</p>
-   <div class="row"><button class="go" id="mig">存進去</button><button class="go sub" id="skip">先不要</button></div>`);
-  pbody.querySelector('#skip').onclick = closePane;
-  pbody.querySelector('#mig').onclick = async () => {
-    pbody.innerHTML = '<p>存檔中…</p>';
-    try {
-      const kd = await root.getDirectoryHandle('02-知識', { create: true }), folder = {};
-      const tn = {}; ORIG.topics.forEach(t => tn[t.id] = t);
-      for (const s of ORIG.sources) {
-        const dn = await uniqueName(kd, safe(s.date + ' ' + s.title), '', 'dir'); folder[s.id] = dn;
-        const dh = await kd.getDirectoryHandle(dn, { create: true });
-        const raw = (window.FIRST_SOURCES || {})[s.file] || '（原文沒有找到）';
-        await writeFile(dh, '原文.md', fm({ 標題: s.title, 日期: s.date, 類型: '影片分析', 私人: false }) + raw.replace(/^---\n[\s\S]*?\n---\n/, '') + '\n');
-      }
-      const nm = {}; ORIG.points.forEach(p => nm[p.id] = p.name);
-      for (const p of ORIG.points) {
-        const sub = tn[p.topic], top = tn[sub.parent] || sub;
-        const rels = ORIG.links.filter(l => l.a === p.id).map(l => ({ id: l.b, name: nm[l.b], note: l.note }));
-        const date = (ORIG.sources.find(s => s.id === p.src[0]) || {}).date || today();
-        const dh = await kd.getDirectoryHandle(folder[p.src[0]]);
-        await writeFile(dh, await uniqueName(dh, safe(p.name), '.md'), pointMd({ ...p, top: top.name, sub: sub.name, also: p.src.slice(1).map(id => folder[id]), by: 'Claude 代拆（第一版）', created: date, rels }));
-      }
-      closePane(); await load();
-    } catch (e) { console.error(e); pbody.innerHTML = '<p>存檔時出錯：' + esc(e.message) + '</p>'; }
-  };
-}
 
 // ---------- 丟東西進去：待拆清單 → 給 AI（手動模式）→ 看拆解 → 存檔 ----------
 const RTYPES = ['有關', '因果', '相反', '例子', '屬於'];
@@ -372,7 +346,7 @@ async function inboxPane() {
   const m = pbody.querySelector('#multi');
   if (m) {
     m.onclick = () => startJob(picked().map(it => ({ title: it.title, text: it.body, priv: false, inbox: it.n })));
-    pbody.querySelector('#del').onclick = async () => { const ib = await root.getDirectoryHandle('00-收件匣'); for (const it of picked()) { try { await ib.removeEntry(it.n); } catch (e) {} } inboxPane(); toast('已刪除（雲端硬碟垃圾桶可救回）'); };
+    pbody.querySelector('#del').onclick = async () => { const ib = await root.getDirectoryHandle('00-收件匣'); for (const it of picked()) { try { await ib.removeEntry(it.n); } catch (e) {} } inboxPane(); toast(APP ? '已刪除（「同步與備份」的回收桶可救回）' : '已刪除（雲端硬碟垃圾桶可救回）'); };
   }
 }
 function batches(arts) { const out = []; let cur = [], len = 0;
@@ -450,7 +424,7 @@ function step2() {
   if (how === 'copy') pbody.querySelector('#copy').click();
   if (how === 'ai') { const b = pbody.querySelector('#aiGo'); if (b && b.textContent === 'AI 拆' && !b.disabled) b.click(); else toast('還沒設定 AI，可以先按「設定 AI」，或用複製的方式', 6000); }
 }
-window.KN = { h, toast, qtip, openPane, closePane, pbody, pane, step2, load, writeFile, realPts, mdHtml, markQuote, RTYPES, buildPrompt, parseAnswer, step3, get job() { return job; }, get HL() { return HL; }, get root() { return root; } }; // 給 ai.js、layer2.js 用
+window.KN = { get paneOpen() { return paneOpen; }, h, toast, qtip, openPane, closePane, pbody, pane, step2, load, writeFile, realPts, mdHtml, markQuote, RTYPES, buildPrompt, parseAnswer, step3, get job() { return job; }, get HL() { return HL; }, get root() { return root; } }; // 給 ai.js、layer2.js 用
 function parseAnswer(t, quiet) {
   const say = quiet ? () => {} : toast;
   t = (t || '').trim(); if (!t) { say('還沒有貼上 AI 的回答'); return null; }

@@ -169,7 +169,7 @@ const snapData = () => ({ date: today(), sources: K.sources.filter(s => !s.demo)
   points: KN.realPts().map(p => ({ id: p.id, name: p.name, topic: p.topic, src: p.src, desc: (p.desc || '').slice(0, 200), priv: !!p.priv })), links: K.links });
 async function tmSave(withPic, name) {
   const d = await tmDir(), base = today() + (name ? ' ' + name.replace(/[\\/:*?"<>|]/g, ' ').slice(0, 30) : ''); await KN.writeFile(d, base + '.json', JSON.stringify(snapData()));
-  if (withPic) { dirty = true; await new Promise(r => requestAnimationFrame(r)); const b = await new Promise(r => cv.toBlob(r, 'image/png')); if (b) await KN.writeFile(d, base + '.png', b); }
+  if (withPic && !window.KNAPP) { dirty = true; await new Promise(r => requestAnimationFrame(r)); const b = await new Promise(r => cv.toBlob(r, 'image/png')); if (b) await KN.writeFile(d, base + '.png', b); }
 }
 (async () => { const t0 = Date.now(); while (Date.now() - t0 < 15000 && !(KN.root && K.points.some(p => p._path))) await new Promise(r => setTimeout(r, 1000));
   if (!KN.root || !K.points.some(p => p._path)) return; try { const d = await tmDir(); await d.getFileHandle(today() + '.json'); } catch (e) { tmSave(false).catch(() => {}); } })();

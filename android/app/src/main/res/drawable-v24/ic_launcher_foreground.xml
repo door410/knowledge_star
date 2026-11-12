@@ -1,0 +1,11 @@
+<!-- 知識網圖示：幾顆星用線連起來（前景，108dp 安全區內） -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <path android:strokeColor="#C9CCD1" android:strokeWidth="1.6" android:strokeAlpha="0.7"
+        android:pathData="M38,40 L56,34 L70,50 L58,68 L40,62 Z M56,34 L58,68 M38,40 L70,50" />
+    <path android:fillColor="#FFF1C9" android:pathData="M38,40m-4,0a4,4 0,1 1,8 0a4,4 0,1 1,-8 0" />
+    <path android:fillColor="#FFFFFF" android:pathData="M56,34m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0" />
+    <path android:fillColor="#9B7BFF" android:pathData="M70,50m-4,0a4,4 0,1 1,8 0a4,4 0,1 1,-8 0" />
+    <path android:fillColor="#FFF1C9" android:pathData="M58,68m-3.5,0a3.5,3.5 0,1 1,7 0a3.5,3.5 0,1 1,-7 0" />
+    <path android:fillColor="#FFF1C9" android:pathData="M40,62m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0" />
+</vector>

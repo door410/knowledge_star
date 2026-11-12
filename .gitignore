@@ -1,1 +1,13 @@
 打開知識網.url
+node_modules/
+www/
+release/
+out/
+electron/google-client.cjs
+android/app/build/
+android/build/
+android/.gradle/
+android/app/src/main/assets/public/
+android/capacitor-cordova-android-plugins/
+android/app/src/main/java/
+*.keystore
