@@ -7,13 +7,13 @@ const E = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&l
 const clone = o => JSON.parse(JSON.stringify(o));
 const BASE_TYPES = KN.RTYPES.slice();
 const TCOL = ['#9AA3AE', '#FFB020', '#FF8FB1', '#5FE0C1', '#6EA8FF', '#C9A2FF', '#F7A072', '#B5E36B'];
-const KEYS = { home: '全貌', add: '丟東西進去', new: '＋ 知識點', qa: '問答', recent: '最近消化', ed: '編輯台', mode: '切換星空／簡約', close: '關閉面板和卡片' };
+const KEYS = { home: '全貌', add: '丟東西進去', new: '＋ 知識點', qa: '問答', recent: '最近消化', ed: '編輯台', mode: '切換星空／簡約', pure: '純粹瀏覽', layout: '編輯版面', close: '關閉面板和卡片' };
 const EDDEF = {
   filter: { tops: [], src: '', days: 0, priv: 'all', q: '' }, label: 'name',
   card: { tabs: { desc: true, src: true, rel: true, mine: true }, first: 'desc', why: true, meta: true },
   line: { w: 1, a: 1, dash: 'solid', byType: false }, types: [], tcol: {}, thide: {},
   grain: 'mid', aiNote: '', open: 'home', ui: 1, fs: 1, dyn: 'mid',
-  keys: { home: 'h', add: 'a', new: 'n', qa: 'q', recent: 'r', ed: 'e', mode: 'm', close: 'escape' } };
+  keys: { home: 'h', add: 'a', new: 'n', qa: 'q', recent: 'r', ed: 'e', mode: 'm', pure: 'p', layout: 'l', close: 'escape' } };
 const ED = {};
 function setED(o) {
   Object.keys(ED).forEach(k => delete ED[k]); Object.assign(ED, clone(EDDEF), o || {});
@@ -32,7 +32,7 @@ function applyED() {
   KNX.fs = ED.fs; KNX.lw = ED.line.w; KNX.la = ED.line.a; KNX.dash = { dash: [6, 4], dot: [1.5, 3] }[ED.line.dash] || [];
   KNX.lineCol = ED.line.byType ? r => `rgba(${rgbOf(tcolOf(r.type || '有關'))},.75)` : null;
   [KNX.dmp, KNX.ms] = { weak: [.45, 1400], strong: [.72, 700] }[ED.dyn] || [.6, 1000];
-  uiStyle.textContent = ED.ui !== 1 ? `#zoom,#card,#tip,#pane,#toast,#menubar,.mpop,#menuEd{zoom:${ED.ui}}` : '';
+  uiStyle.textContent = ED.ui !== 1 ? `#zoom,#card,#tip,#pane,#toast,#menubar,.mpop,#kbot,#kedit,#kpx{zoom:${ED.ui}}` : '';
   dirty = true;
 }
 
@@ -164,6 +164,7 @@ const isEd = () => !document.getElementById('pane').hidden && document.getElemen
 const clickFbar = t => { const b = [...document.querySelectorAll('#fbar .c')].find(b => b.textContent === t); if (b) b.click(); };
 const ACT = { home: () => document.getElementById('home').click(), add: () => document.getElementById('addBtn').click(), new: () => document.getElementById('newBtn').click(),
   qa: () => clickFbar('問答'), recent: () => clickFbar('最近消化'), ed: () => edPane(), mode: () => { const b = document.querySelector('#gMode .c:not(.on)'); if (b) b.click(); },
+  pure: () => KN.layout && KN.layout.pure(!KN.layout.pureOn), layout: () => KN.layout && KN.layout.edit(),
   close: () => { KN.closePane(); card.hidden = true; linePanel.hidden = true; } };
 const keyName = k => ({ escape: 'Esc', ' ': '空白鍵', '': '（沒有）' }[k] || k.toUpperCase());
 let capture = null;
@@ -233,7 +234,7 @@ function catHtml(c) {
   if (c === 'card') return row('分頁', ck('card.tabs.desc', ED.card.tabs.desc, '說明') + ck('card.tabs.src', ED.card.tabs.src, '來源') + ck('card.tabs.rel', ED.card.tabs.rel, '關聯') + ck('card.tabs.mine', ED.card.tabs.mine, '我的想法')) +
     row('先打開', sel('card.first', ED.card.first, [['desc', '說明'], ['src', '來源'], ['rel', '關聯'], ['mine', '我的想法']]), '點知識點時，卡片先打開哪一頁。') +
     row('說明分頁', ck('card.why', ED.card.why, '為什麼拆成這個點') + ck('card.meta', ED.card.meta, '來源數和拆點方式'), '「說明」分頁裡要不要顯示這兩段。');
-  if (c === 'keys') return row('整理選單', '<button class="c" id="emenu">開始拖曳</button>', '拖曳來排上方選單、選哪些露出在左上。') +
+  if (c === 'keys') return row('編輯版面', '<button class="c" id="emenu">開始</button>', '直接在畫面上拖曳按鈕、改名、收起來，排手機底部列。') +
     Object.keys(KEYS).map(a => row(KEYS[a], `<button class="c" data-key="${a}">${capture === a ? '按一個鍵…' : keyName(ED.keys[a] || '')}</button>`)).join('') +
     '<p class="note">快捷鍵：按右邊的鈕，再按想用的鍵；Backspace 清除。</p>';
   if (c === 'ai') return row('拆點粗細', sel('grain', ED.grain, [['coarse', '粗（點少）'], ['mid', '中'], ['fine', '細（點多）']]), '交給 AI 拆的時候，要拆得多細。') +
@@ -284,5 +285,6 @@ function edPane() {
 
 window.knEd = (t, s) => { if (t === 'hist') return histPane(); if (s && SECMAP[s]) edCat = SECMAP[s]; edPane(); };
 window.knSetED = (k, v) => { ED[k] = v; saveED(); applyED(); };
+window.knApplyState = (st2, ed2) => applyState(JSON.stringify({ st: st2 || clone(st), ed: ed2 || clone(ED) }));   // 介面設定同步（ui-sync.js）用：不進復原紀錄
 applyED(); build(); ui(); last = snap();
 })();

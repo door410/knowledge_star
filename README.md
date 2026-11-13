@@ -26,6 +26,7 @@
 - Android：Capacitor（`android/`、原生程式在 `native/android/`）；Windows：Electron（`electron/`）
 - 推到 `main` → GitHub Actions 測試、建置、發佈到 Releases（步驟在 `scripts/ci/`）
 - Secrets：`ANDROID_KEYSTORE_BASE64`、`ANDROID_KEYSTORE_PASSWORD`（簽章檔正本在 Door 雲端硬碟「知識工具／App簽章（不可刪）」）、`GOOGLE_DESKTOP_ID`、`GOOGLE_DESKTOP_SECRET`
+- 介面：`menu.js`＝功能清單、下拉選單、外觀面板、小框拖曳；`layout.js`＝按鈕怎麼排（上方左右、組、改名、收起來、手機底部列、畫面上直接編輯）、純粹瀏覽、面板分段收合、各區塊字大小；`ui-sync.js`＝介面設定逐類勾選同步（每台寫自己的 `04-知識網/介面設定/<裝置>.json`）
 - 預覽：`python -m http.server` 後開 `知識網.html?vfs=1`（模擬 App，不能同步）
 - 決定紀錄：Door 雲端硬碟「知識工具／06 問答紀錄.md」第 40 輪起
 

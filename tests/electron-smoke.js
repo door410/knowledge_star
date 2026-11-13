@@ -14,5 +14,5 @@
   await dh.removeEntry(fn); await wait(300);
   const afterDel = KNVFS.list().length;
   await knSyncPane(); document.querySelector('[data-tr]').click(); await wait(800);
-  return { app: window.KNAPP, files, afterDel, afterRestore: KNVFS.list().length, points: K.points.map(p => p.name), syncOn: !!document.getElementById('syncDot') };
+  return { app: window.KNAPP, files, afterDel, afterRestore: KNVFS.list().length, points: K.points.map(p => p.name), syncOn: 'sync' in document.documentElement.dataset, layoutOn: !!(window.KN && KN.layout) };
 })()

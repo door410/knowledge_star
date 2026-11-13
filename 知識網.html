@@ -210,7 +210,7 @@ let bgC=null,bgW=0;function bgSpr(){if(bgC&&bgW===W*H)return bgC;const c=documen
 function drawStar(){const sel=view.sel,wc=FIT.star.wc;
  ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);ctx.drawImage(bgSpr(),0,0,W,H);
  const spread=Math.max(0,...TP.map(ttOf)),zb=1+(view.z-1)*.12,s2=base*zb,bx=W/2+(-BW/2-(view.cx-wc.x)*.25)*s2,by=H/2+(-BH/2-(view.cy-wc.y)*.25)*s2;
- ctx.globalAlpha=.5*(1-.5*spread);ctx.drawImage(bandSpr(),bx,by,BW*s2,BH*s2);ctx.globalAlpha=1;
+ // 星塵帶（會跟著移動的那條）11/13 拿掉，只留背景微星點
  if(sel){const[x0,y0]=toS(...pos(sel));ctx.strokeStyle=`rgba(${rgbOf(st.starC)},.6)`;ctx.lineWidth=KNX.lw;ctx.setLineDash(KNX.dash);relOf(sel).forEach(r=>{const[x,y]=toS(...pos(r.p));if(KNX.lineCol)ctx.strokeStyle=KNX.lineCol(r);ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x,y);ctx.stroke()});ctx.setLineDash([])}
  const k=Math.sqrt(view.z)*.75,hi=[];ctx.fillStyle=st.starC;
  for(const p of S){const[x,y]=toS(...pos(p));if(x<-40||y<-40||x>W+40||y>H+40)continue;
@@ -344,6 +344,8 @@ build();ui();enterMode();requestAnimationFrame(frame);
 <script src="more.js"></script>
 <script src="topics.js"></script>
 <script src="menu.js"></script>
+<script src="layout.js"></script>
 <script src="zip.js"></script>
 <script src="sync-core.js"></script>
-<script src="sync.js"></script></body></html>
+<script src="sync.js"></script>
+<script src="ui-sync.js"></script></body></html>

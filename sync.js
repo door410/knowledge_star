@@ -115,13 +115,9 @@ function syncNow(manual) {
 const later = (ms = 15000) => { clearTimeout(timer); timer = setTimeout(() => syncNow(), ms); };
 function refresh(n) { if (KN.paneOpen) return setTimeout(() => refresh(n), 2000); KN.load(true); }
 
-// 右下角的小圓點：同步狀態（灰＝沒連、綠＝好、轉圈＝同步中、紅＝出錯）
-const dot = h('button', { id: 'syncDot', title: '同步與備份' });
-dot.onclick = () => knSyncPane();
+// 同步狀態（11/13：不再有右下角的小圓點，狀態顯示在「設定 ▾ › 同步與備份」那一項旁邊；出錯時「設定」鈕上有紅點）
+// html 的 data-sync：''＝沒連、ok、run＝同步中、err＝出錯（樣式在 menu.js）
 document.head.append(h('style', {}, `
-#syncDot{position:fixed;right:12px;bottom:12px;width:14px;height:14px;border-radius:50%;border:2px solid #8888;background:transparent;z-index:6;padding:0;cursor:pointer}
-#syncDot.ok{background:#3fbf7f;border-color:#3fbf7f}#syncDot.err{background:#e05a5a;border-color:#e05a5a}#syncDot.run{border-color:#9B7BFF;border-top-color:transparent;animation:knspin 1s linear infinite}
-@keyframes knspin{to{transform:rotate(360deg)}}
 .sy h4{margin:18px 0 6px;font-size:15px}.sy .li{display:flex;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid #8882}.sy .li span{flex:1;min-width:0;overflow-wrap:anywhere}
 .sy .li small{display:block;color:#888}.sy button.s{border:1px solid #8886;background:none;color:inherit;font:inherit;border-radius:999px;padding:4px 12px;cursor:pointer;white-space:nowrap}
 .sy .bad{color:#e05a5a}
@@ -129,8 +125,7 @@ html.app-android #pane{inset:0;border-radius:0;border:none;max-width:none}
 html.app-android #pane header{padding:10px 12px}
 html.app-android #pbody{padding:12px}
 `));
-document.body.append(dot);
-function setDot(s) { dot.className = s || (M && M.on ? (M.err ? 'err' : 'ok') : ''); }
+function setDot(s) { document.documentElement.dataset.sync = s || (M && M.on ? (M.err ? 'err' : 'ok') : ''); }
 
 // ---------- 備份 ----------
 const BK = '知識網備份';
@@ -238,7 +233,7 @@ window.knSyncPane = async function () {
   const A = window.KNAPP === 'android' && Capacitor.Plugins.App;
   if (A) A.addListener('backButton', () => {
     const card = document.getElementById('card');
-    if (!KN.pane.hidden) KN.closePane(); else if (card && !card.hidden) card.hidden = true; else A.minimizeApp();
+    if (document.documentElement.classList.contains('kedit')) KN.layout.done(); else if (KN.layout && KN.layout.pureOn) KN.layout.pure(false); else if (!KN.pane.hidden) KN.closePane(); else if (card && !card.hidden) card.hidden = true; else A.minimizeApp();
   });
 })();
 })();

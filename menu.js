@@ -1,6 +1,7 @@
 // 介面（11/7 改版，06 第 31～36 輪、15 施工單段 2～5）：
 // 左上「丟東西進去」「問答」；右上「回顧 ▾」「整理 ▾」「外觀」「設定 ▾」（可拖曳整理）；
 // 外觀面板（配色、單項顏色、新點、說明、框和字、介面深／淺）；說明＝固定大小的框，出現在功能右側（右側面板則在面板左側）。
+// 11/13：按鈕怎麼排（上方左／右、組、改名、收起來、手機底部列、畫面上直接編輯）搬到 layout.js；這裡只留功能清單和下拉選單。
 (() => {
 const KN = window.KN, { h, toast, openPane, pbody, pane } = KN;
 const E = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -23,16 +24,14 @@ const ITEMS = {
   ed: ['編輯台', '知識網顯示什麼、卡片顯示什麼、快捷鍵、AI 怎麼拆', () => window.knEd && knEd('custom')],
   ai: ['AI 設定', '', () => { const b = document.querySelector('#aiBar button'); if (b) b.click(); }],
   folder: [window.KNAPP ? '同步與備份' : '連上資料夾', window.KNAPP ? 'Google 雲端硬碟同步、備份與還原、回收桶' : '', () => clk('folderBtn')],
-  menu: ['整理選單', '拖曳來排選單、選哪些露出在左上', () => editMode()] };
+  menu: ['編輯版面', '直接在畫面上拖曳按鈕、改名、收起來，排手機底部列', () => KN.layout && KN.layout.edit()],
+  pure: ['純粹瀏覽', '按鈕全部藏起來，只看知識網；按 Esc 或點畫面再按「退出」回來（快捷鍵 P）', () => KN.layout && KN.layout.pure(true)],
+  new: ['＋ 知識點', '自己新增一個知識點', () => clk('newBtn')],
+  home: ['全貌', '回到整張知識網', () => clk('home')],
+  mode: ['切換星空／簡約', '', () => { const b = document.querySelector('#gMode .c:not(.on)'); if (b) b.click(); applyLook(); }],
+  more: ['全部功能', '列出所有功能（包括收起來的）', () => KN.layout && KN.layout.more()] };
 if (window.knTopics) ITEMS.topics = ['主題整理', '主題、子主題改名、搬到別的主題底下、合併', () => knTopics()];
-const DEFM = { groups: [{ name: '回顧', items: ['recent', 'grow', 'tour', 'tm'] }, { name: '整理', items: ['lasso', 'hist', ...(ITEMS.topics ? ['topics'] : [])] },
-  { name: '外觀', items: ['look'] }, { name: '設定', items: ['ed', 'ai', 'folder', 'menu'] }], pins: ['add', 'qa'] };
-let M = store.get('menu2', null) || clone(DEFM);
-const fix = () => { M.groups.forEach(g => g.items = g.items.filter(i => ITEMS[i])); M.pins = M.pins.filter(i => ITEMS[i]);
-  const seen = new Set([...M.groups.flatMap(g => g.items), ...M.pins]);
-  Object.keys(ITEMS).forEach(i => { if (!seen.has(i)) M.groups[M.groups.length - 1].items.push(i); }); };
-fix();
-const saveM = () => store.set('menu2', M);
+let nameOf = id => ITEMS[id][0];   // layout.js 會換成「改過的名字」
 
 // ---------- 配色 ----------
 const DARK = { ui: '#14161b', tx: '#e6e8ec', btn: '#1f232b', bd: '#2e333d' }, LIGHT = { ui: '#ffffff', tx: '#23262b', btn: '#f2f3f5', bd: '#d9dce1' };
@@ -139,41 +138,33 @@ html.kt body #toast{top:auto;bottom:56px;max-width:calc(100vw - 24px);text-align
 .lk input[type=color]{width:30px;height:22px;border:var(--k-bw) solid var(--k-bd);border-radius:5px;padding:0;background:none;cursor:pointer}
 .lk input[type=range]{flex:1;min-width:80px;max-width:170px}.lk .v{font-size:12px;opacity:.75;min-width:3.5em}
 .lk .pre{display:flex;gap:6px;flex-wrap:wrap}
-#menuEd{position:fixed;left:12px;right:12px;top:var(--ktop,56px);z-index:34;background:var(--k-ui);color:var(--k-tx);border:var(--k-bw) solid var(--k-bd);border-radius:var(--k-r);padding:12px;display:flex;gap:10px;align-items:flex-start;overflow-x:auto;font-size:13px}
-#menuEd .col{min-width:130px;border:1px dashed var(--k-bd);border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:6px;min-height:80px}
-#menuEd .col input{background:transparent;color:inherit;border:0;border-bottom:1px solid var(--k-bd);font:inherit;font-weight:bold;width:100%}
-#menuEd .chip{border:1px solid var(--k-bd);border-radius:8px;padding:5px 9px;cursor:grab;background:var(--k-btn);user-select:none}
-#menuEd .col.pins{border-style:solid}#menuEd .col.over{outline:2px solid var(--k-sel)}#menuEd .tools{display:flex;flex-direction:column;gap:6px}
-#menuEd .x{float:right;cursor:pointer;opacity:.6;margin-left:6px}#menuEd .note{opacity:.6;font-size:12px}
-#menuEd button{font:inherit;border:var(--k-bw) solid var(--k-bd);background:var(--k-btn);color:var(--k-tx);border-radius:var(--k-r);padding:5px 12px;cursor:pointer}`));
+html[data-sync] .mpop [data-i="folder"]>span::after{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:7px;vertical-align:1px;border:1.5px solid #8888}
+html[data-sync=ok] .mpop [data-i="folder"]>span::after{background:#3fbf7f;border-color:#3fbf7f}
+html[data-sync=err] .mpop [data-i="folder"]>span::after,html[data-sync=err] .mb[data-hasf]::after{background:#e05a5a;border-color:#e05a5a}
+html[data-sync=run] .mpop [data-i="folder"]>span::after{border-color:#9B7BFF;border-top-color:transparent;animation:knspin 1s linear infinite}
+@keyframes knspin{to{transform:rotate(360deg)}}
+html[data-sync=err] .mb[data-hasf]{position:relative}html[data-sync=err] .mb[data-hasf]::after{content:'';position:absolute;right:-3px;top:-3px;width:8px;height:8px;border-radius:50%}`));
 
 // ---------- 選單列 ----------
 const bar = h('div', { id: 'menubar' }, '<div class="lf"></div><div class="rt"></div>'); document.body.append(bar);
 const setTop = () => document.documentElement.style.setProperty('--ktop', (bar.offsetHeight + 18) + 'px');
 addEventListener('resize', setTop);
 let pop = null;
-const closePop = () => { if (pop) { pop.remove(); pop = null; bar.querySelectorAll('.mb.on').forEach(b => b.classList.remove('on')); } };
-function drawBar() {
-  bar.querySelector('.lf').innerHTML = M.pins.map(i => `<button class="mb pri" data-p="${i}">${E(ITEMS[i][0])}</button>`).join('');
-  bar.querySelector('.rt').innerHTML = M.groups.map((g, i) => !g.items.length ? '' : g.items.length === 1 ? `<button class="mb" data-one="${g.items[0]}">${E(g.name)}</button>` : `<button class="mb" data-g="${i}">${E(g.name)} ▾</button>`).join('');
-  bar.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { closePop(); ITEMS[b.dataset.p][2](); });
-  bar.querySelectorAll('[data-one]').forEach(b => b.onclick = () => { closePop(); ITEMS[b.dataset.one][2](); });
-  bar.querySelectorAll('[data-g]').forEach(b => b.onclick = e => { e.stopPropagation(); const open = b.classList.contains('on'); closePop(); if (!open) openPop(b, M.groups[+b.dataset.g]); });
-  setTop();
-}
+const closePop = () => { if (pop) { pop.remove(); pop = null; document.querySelectorAll('.mb.on').forEach(b => b.classList.remove('on')); } };
 // 下拉選單：清單在按鈕正下方（右邊對齊按鈕）；說明是單獨的小框，出現在清單左邊、對齊停住的那一項（11/7 她選 C）
 function openPop(b, g) {
   b.classList.add('on'); hideHelp();
   pop = h('div', { className: 'mpop' });
-  pop.innerHTML = `<div class="lst">${g.items.map(i => `<button data-i="${i}"><span>${E(ITEMS[i][0])}</span>${ITEMS[i][1] ? qm(ITEMS[i][1]) : ''}</button>`).join('')}</div>`;
+  pop.innerHTML = `<div class="lst">${g.items.map(i => `<button data-i="${i}"><span>${E(nameOf(i))}</span>${ITEMS[i][1] ? qm(ITEMS[i][1]) : ''}</button>`).join('')}</div>`;
   pop.querySelectorAll('[data-i]').forEach(x => x.onclick = e => { if (e.target.closest('.q')) return; closePop(); ITEMS[x.dataset.i][2](); });
   document.body.append(pop);
   const r = b.getBoundingClientRect();
-  pop.style.top = (r.bottom + 6) + 'px';
+  if (b.closest('#kbot')) { pop.style.bottom = (innerHeight - r.top + 6) + 'px'; }   // 底部列：往上開
+  else pop.style.top = (r.bottom + 6) + 'px';
   pop.style.right = Math.max(8, innerWidth - r.right) + 'px';
   if (pop.getBoundingClientRect().left < 8) { pop.style.right = 'auto'; pop.style.left = '8px'; }
 }
-document.addEventListener('pointerdown', e => { if (pop && !pop.contains(e.target) && !bar.contains(e.target)) closePop(); });
+document.addEventListener('pointerdown', e => { if (pop && !pop.contains(e.target) && !bar.contains(e.target) && !e.target.closest('#kbot')) closePop(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closePop(); });
 
 // ---------- 說明框：固定大小，出現在功能右側；右側面板的說明出現在面板左側、對齊那一行 ----------
@@ -225,7 +216,7 @@ function lookPane() {
    ${row('樣子', `<button class="c${star ? ' on' : ''}" data-mode="star">壯麗星空</button><button class="c${star ? '' : ' on'}" data-mode="min">簡約</button>`, '壯麗星空：主題是由知識點組成的星球。簡約：主題名稱＋點，放大才出現下一層。快捷鍵 M。')}
    ${star ? row('星點顏色', col('data-st="starC"', st.starC)) + row('星空選取色', col('data-st="starHi"', st.starHi))
     : row('點色方式', `<select id="lkcol">${[['mono', '素色'], ['topic', '依主題'], ['age', '依新舊'], ['fade', '依快忘']].map(([v, t]) => `<option value="${v}"${st.col === v ? ' selected' : ''}>${t}</option>`).join('')}</select>`, '素色＝都用「點的顏色」；依主題／新舊／快忘＝用下面的顏色漸變。') + (pick ? `<div class="tr">${pick}</div>` : '')}
-   <div class="sec">新點（7 天內新加的）</div>
+   <div class="sec">新點</div>
    ${row('新點', `點${col('data-t="newc"', T.newc)} 光圈${col('data-t="ring"', T.ring)}<label><input type="checkbox" id="lkring"${LOOK.ringOn ? ' checked' : ''}> 顯示光圈</label>`)}
    <div class="sec">說明</div>
    ${row('字大小', rg('data-h="size"', 11, 16, 1, LOOK.help.size, v => v + ' px'))}
@@ -236,6 +227,7 @@ function lookPane() {
    ${row('圓角', rg('data-f="r"', 0, 20, 1, LOOK.r, v => v + ' px'))}
    ${row('字體', `<select id="lkff">${[...FONTS, ...custom.map(k => [`"kn-${k}"`, k + '（匯入）'])].map(([v, t]) => `<option value='${E(v)}'${v === LOOK.ff ? ' selected' : ''}>${E(t)}</option>`).join('')}</select><label class="c" style="cursor:pointer;padding:3px 10px">匯入字體<input type="file" id="lkimp" accept=".ttf,.otf,.woff,.woff2" hidden></label>`, '介面和知識網的字體；可以匯入自己的字體檔（.ttf、.otf）')}
    ${row('知識網字大小', rg('data-ed="fs"', .8, 2, .1, fs, pct))}
+   ${KN.fsz ? KN.fsz.rows(row) : ''}
    ${row('介面大小', rg('data-ed="ui"', .8, 1.4, .05, zm, pct), '面板、卡片、按鈕整體放大縮小')}
    <div class="sec">介面</div>
    ${row('深／淺', `<button class="c${LOOK.ui !== 'light' ? ' on' : ''}" data-ui="dark">深</button><button class="c${LOOK.ui === 'light' ? ' on' : ''}" data-ui="light">淺</button>`, '選單、面板、卡片用深色還是淺色（和知識網底色分開）')}
@@ -255,6 +247,7 @@ function lookPane() {
   P.querySelectorAll('[data-h]').forEach(x => x.oninput = () => { const k = x.dataset.h; LOOK.help[k] = x.type === 'range' ? +x.value : x.value; if (x.type === 'range') x.nextElementSibling.textContent = k === 'size' ? x.value + ' px' : x.value + '%'; saveLook(); });
   P.querySelectorAll('[data-f]').forEach(x => x.oninput = () => { const k = x.dataset.f; LOOK[k] = +x.value; x.nextElementSibling.textContent = k === 'bw' ? (+x.value ? x.value + ' px' : '不要') : x.value + ' px'; saveLook(); setTop(); });
   P.querySelectorAll('[data-ed]').forEach(x => x.oninput = () => { x.nextElementSibling.textContent = pct(x.value); if (window.knSetED) knSetED(x.dataset.ed, +x.value); setTop(); });
+  if (KN.fsz) KN.fsz.bind(P);
   P.querySelectorAll('[data-ui]').forEach(x => x.onclick = () => { LOOK.ui = x.dataset.ui; saveLook(); lookPane(); });
   P.querySelector('#lkff').onchange = e => { LOOK.ff = e.target.value; saveLook(); };
   P.querySelector('#lkimp').onchange = async e => { const f = e.target.files[0]; if (!f) return; try {
@@ -263,32 +256,7 @@ function lookPane() {
 }
 window.knLook = lookPane;
 
-// ---------- 整理選單：直接拖曳 ----------
-function editMode() {
-  closePop(); KN.closePane(); let ed = document.getElementById('menuEd'); if (ed) ed.remove(); ed = h('div', { id: 'menuEd' }); document.body.append(ed);
-  const draw = () => {
-    ed.innerHTML = `<div class="col pins" data-pins="1"><b>露出在左上</b>${M.pins.map(i => `<div class="chip" draggable="true" data-i="${i}" data-from="pins">${E(ITEMS[i][0])}<span class="x" data-up="${i}" title="不要露出">×</span></div>`).join('')}<span class="note">把功能拖進來</span></div>` +
-      M.groups.map((g, gi) => `<div class="col" data-gi="${gi}"><div><input value="${E(g.name)}" data-n="${gi}">${g.items.length ? '' : `<span class="x" data-dg="${gi}" title="刪除這組">×</span>`}</div>${g.items.map(i => `<div class="chip" draggable="true" data-i="${i}" data-from="${gi}">${E(ITEMS[i][0])}</div>`).join('')}${g.items.length === 1 ? '<span class="note">只有一個功能＝直接按</span>' : ''}</div>`).join('') +
-      `<div class="tools"><button id="meok">好了</button><button id="meadd">＋ 新的組</button><button id="medef">恢復預設</button></div>`;
-    ed.querySelectorAll('[data-n]').forEach(x => x.onchange = () => { M.groups[+x.dataset.n].name = x.value.trim() || '未命名'; saveM(); drawBar(); });
-    ed.querySelectorAll('[data-dg]').forEach(x => x.onclick = () => { M.groups.splice(+x.dataset.dg, 1); saveM(); drawBar(); draw(); });
-    ed.querySelectorAll('[data-up]').forEach(x => x.onclick = () => { M.pins = M.pins.filter(i => i !== x.dataset.up); fix(); saveM(); drawBar(); draw(); });
-    ed.querySelectorAll('.chip').forEach(c => c.ondragstart = e => e.dataTransfer.setData('text/plain', c.dataset.i + '|' + c.dataset.from));
-    ed.querySelectorAll('.col').forEach(cl => {
-      cl.ondragover = e => { e.preventDefault(); cl.classList.add('over'); }; cl.ondragleave = () => cl.classList.remove('over');
-      cl.ondrop = e => { e.preventDefault(); cl.classList.remove('over'); const [id] = e.dataTransfer.getData('text/plain').split('|'); if (!ITEMS[id]) return;
-        const before = e.target.closest('.chip') ? e.target.closest('.chip').dataset.i : null;
-        M.pins = M.pins.filter(i => i !== id); M.groups.forEach(x => x.items = x.items.filter(i => i !== id));
-        const arr = cl.dataset.pins ? M.pins : M.groups[+cl.dataset.gi].items, k = before ? arr.indexOf(before) : -1; k >= 0 ? arr.splice(k, 0, id) : arr.push(id);
-        saveM(); drawBar(); draw(); };
-    });
-    ed.querySelector('#meok').onclick = () => ed.remove();
-    ed.querySelector('#meadd').onclick = () => { M.groups.push({ name: '新的組', items: [] }); saveM(); drawBar(); draw(); };
-    ed.querySelector('#medef').onclick = () => { M = clone(DEFM); fix(); saveM(); drawBar(); draw(); };
-  };
-  draw();
-}
-window.knMenuEdit = editMode;
+window.knMenuEdit = () => KN.layout && KN.layout.edit();
 
 // ---------- 小框和卡片：拖標題移動、拖右下角改大小；各自記住位置和大小，雙擊標題放回原位（11/7 她選）----------
 // 位置和大小都用「畫面上看到的」像素記；外觀「介面大小」不是 100% 時（CSS zoom），寫回去前換算，才不會越存越小。
@@ -353,5 +321,9 @@ addEventListener('resize', () => { applyPos(pane); applyPos(cardEl); arrange(); 
 const lb = lasso(); if (lb) lb.style.display = 'none';
 if (st.demo) { st.demo = false; save(); build(); ui(); enterMode(); }
 const _ui = ui; ui = function () { _ui(); applyLook(); };
-applyLook(); drawBar();
+applyLook();
+// 給 layout.js（按鈕排列）、ui-sync.js（介面設定同步）用
+KN.menu = { ITEMS, E, qm, openPop, closePop, setTop, applyLook, lookPane, bar, setNameOf: f => nameOf = f, get pop() { return pop; },
+  reloadLook() { Object.assign(LOOK, store.get('look3', {})); applyLook(); if (!pane.hidden && document.getElementById('ptitle').textContent === '外觀') lookPane(); },
+  reloadWin() { Object.keys(POS).forEach(k => delete POS[k]); Object.assign(POS, store.get('winpos', {})); applyPos(pane); applyPos(cardEl); } };
 })();
