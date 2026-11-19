@@ -153,43 +153,4 @@ window.aiAsk = async p => {
   throw last;
 };
 
-// ---------- 「交給 AI 拆」畫面上的 AI 按鈕（folder.js step2 呼叫）----------
-window.aiSocket = (prompt, ans, done) => {
-  const row = h('div', { className: 'row' }); pbody.prepend(row);
-  const run = async list => {
-    if (!list.length) { toast('沒有可以用的 AI，請用下面的手動方式', 6000); return paint(); }
-    for (const ch of list) {
-      row.innerHTML = `<span class="note">AI 拆解中…（${CH[ch]}）</span>`;
-      try {
-        const r = await RUN[ch](prompt), usd = record(ch, r);
-        let text = r.text;
-        if (window.knIntegrate) { row.innerHTML = '<span class="note">找舊的相關知識點…</span>'; try { text = await knIntegrate(text); } catch (e) { toast('整合判斷沒成功：' + e.message, 6000); } }
-        ans.value = text; ans.dispatchEvent(new Event('input'));
-        toast(`用 ${CH[ch]} 拆好了` + (ch === 'vertex' ? `，約 $${f(usd)}` : '')); paint(); return done();
-      } catch (e) { toast(`${CH[ch]} 沒成功：${e.message}`, 6000); }
-    }
-    toast('AI 都沒成功，請用下面的手動方式', 7000); paint();
-  };
-  const paint = () => {
-    const rd = ready();
-    if (!rd.length) { row.innerHTML = `<button class="go sub" id="aiGo">設定 AI</button>${qtip('設定後按一下就由 AI 拆，不用複製貼上。')}`; row.querySelector('#aiGo').onclick = () => settingsPane(() => step2()); return; }
-    const man = S.mode === 'manual', first = man ? S.pick : rd[0];
-    const est = first === 'vertex' && !why('vertex') ? estimate(prompt) : null;
-    row.innerHTML = `<button class="go" id="aiGo"${man && why(first) ? ' disabled' : ''}>AI 拆</button>` +
-      (man ? `<select id="aiPick">${ORDER.map(c => `<option value="${c}"${c === first ? ' selected' : ''}${why(c) ? ' disabled' : ''}>${CH[c]}${why(c) ? '（' + why(c) + '）' : ''}</option>`).join('')}</select>` : `<span class="note">${CH[first]}</span>`) +
-      (est ? `<span class="note">預估 $${f(est[0])}～$${f(est[1])}</span>` : '');
-    const sel = row.querySelector('#aiPick'); if (sel) sel.onchange = () => { S.pick = sel.value; save(); paint(); };
-    row.querySelector('#aiGo').onclick = () => {
-      if (man) return run([first]);
-      if (first === 'vertex' && est[1] > S.vertex.ask) {
-        row.innerHTML = `<span class="note">Vertex 這次最多約 $${f(est[1])}，超過你設的 $${f(S.vertex.ask)}</span><button class="go" id="aiYes">還是用 Vertex</button><button class="go sub" id="aiFree">改用免費的</button>`;
-        row.querySelector('#aiYes').onclick = () => run(rd);
-        row.querySelector('#aiFree').onclick = () => run(rd.filter(c => c !== 'vertex'));
-        return;
-      }
-      run(rd);
-    };
-  };
-  paint();
-};
 })();

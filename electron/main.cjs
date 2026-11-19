@@ -1,13 +1,14 @@
 // ===== 知識網 Windows 版（Electron 主程序）=====
 // 資料：文件\知識網資料（Markdown，和 Android 版透過 Google 雲端硬碟同步）；備份：文件\知識網備份
 // Google 登入：電腦版應用程式 OAuth（系統瀏覽器＋127.0.0.1 回傳＋PKCE），長期授權用 Windows 帳號加密保存（google-token.bin）
-const { app, BrowserWindow, ipcMain, dialog, shell, safeStorage, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, safeStorage, Menu, nativeImage } = require('electron');
 const fs = require('node:fs'), path = require('node:path'), http = require('node:http'), crypto = require('node:crypto');
 let GOOGLE = { clientId: '', clientSecret: '' };
 try { GOOGLE = require('./google-client.cjs'); } catch (e) { /* 建置時由 GitHub Secrets 產生 */ }
 
 // KN_TEST_DIR：自動測試用（tests/electron-smoke.cjs），不碰真正的資料
 const DOCS = () => process.env.KN_TEST_DIR || app.getPath('documents');
+if (process.env.KN_TEST_DIR) app.setPath('userData', path.join(process.env.KN_TEST_DIR, 'userData'));
 const DATA = () => path.join(DOCS(), '知識網資料');
 const BACKUP = () => path.join(DOCS(), '知識網備份');
 const TEXT = /\.(md|json|txt)$/i;
@@ -139,6 +140,48 @@ ipcMain.handle('google:request', async (_e, req) => {
   return { status: r.status, body: new Uint8Array(await r.arrayBuffer()) };
 });
 
+// ---------- 名稱和圖示（外觀裡可以自己改）----------
+// 存在 userData：brand.json（名稱）、brand-icon.png／.ico（圖示）；捷徑（桌面、開始功能表）跟著改名、換圖示
+const DEF_NAME = '知識網';
+const brandFile = () => path.join(app.getPath('userData'), 'brand.json');
+const iconPng = () => path.join(app.getPath('userData'), 'brand-icon.png'), iconIco = () => path.join(app.getPath('userData'), 'brand-icon.ico');
+const readBrand = () => { try { return Object.assign({ name: DEF_NAME }, JSON.parse(fs.readFileSync(brandFile(), 'utf8'))); } catch (e) { return { name: DEF_NAME }; } };
+function pngToIco(png) {   // PNG 直接包成 .ico（Windows Vista 以後都看得懂）
+  const h = Buffer.alloc(22); h.writeUInt16LE(1, 2); h.writeUInt16LE(1, 4); h.writeUInt16LE(1, 10); h.writeUInt16LE(32, 12); h.writeUInt32LE(png.length, 14); h.writeUInt32LE(22, 18);
+  return Buffer.concat([h, png]);
+}
+function fixShortcuts(oldName, name, icon) {   // 安裝時建的捷徑：改名、換圖示
+  const dirs = [app.getPath('desktop'), path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs')];
+  for (const d of dirs) {
+    const from = path.join(d, oldName + '.lnk'), to = path.join(d, name + '.lnk');
+    if (!fs.existsSync(from)) continue;
+    try {
+      const o = shell.readShortcutLink(from);
+      shell.writeShortcutLink(to, 'create', { target: o.target || process.execPath, cwd: o.cwd, args: o.args, description: name, appUserModelId: o.appUserModelId, icon: icon || process.execPath, iconIndex: 0 });
+      if (from !== to) fs.rmSync(from, { force: true });
+    } catch (e) { console.warn('捷徑', e.message); }
+  }
+}
+function applyBrand(w) {
+  const b = readBrand(); w.setTitle(b.name);
+  if (fs.existsSync(iconPng())) w.setIcon(nativeImage.createFromPath(iconPng()));
+}
+ipcMain.handle('brand:get', () => { const b = readBrand(); return { name: b.name, icon: fs.existsSync(iconPng()) ? 'data:image/png;base64,' + fs.readFileSync(iconPng()).toString('base64') : '' }; });
+ipcMain.handle('brand:set', (e, name, icon, reset) => {
+  const old = readBrand(), b = { name: reset ? DEF_NAME : (name || old.name).slice(0, 40) };
+  if (/[\/:*?"<>|]/.test(b.name)) throw new Error('名稱不能有 \ / : * ? " < > |');
+  if (reset) { fs.rmSync(iconPng(), { force: true }); fs.rmSync(iconIco(), { force: true }); }
+  if (icon) {
+    const img = nativeImage.createFromBuffer(Buffer.from(icon)); if (img.isEmpty()) throw new Error('看不懂這張圖片');
+    const png = img.resize({ width: 256, height: 256, quality: 'best' }).toPNG();
+    fs.writeFileSync(iconPng(), png); fs.writeFileSync(iconIco(), pngToIco(png));
+  }
+  fs.writeFileSync(brandFile(), JSON.stringify(b));
+  if (process.platform === 'win32' && !process.env.KN_TEST_DIR) fixShortcuts(old.name, b.name, fs.existsSync(iconIco()) ? iconIco() : '');
+  const w = BrowserWindow.fromWebContents(e.sender); if (w) applyBrand(w);
+  return true;
+});
+
 // ---------- 視窗 ----------
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
@@ -152,6 +195,8 @@ else {
     w.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:\/\//.test(url)) shell.openExternal(url); return { action: 'deny' }; });
     w.webContents.on('will-navigate', (ev, url) => { if (!url.startsWith('file://')) { ev.preventDefault(); if (/^https?:\/\//.test(url)) shell.openExternal(url); } });
     w.webContents.on('before-input-event', (_ev, input) => { if (input.type === 'keyDown' && input.key === 'F12' && input.control && input.shift) w.webContents.openDevTools(); });
+    w.on('page-title-updated', ev => ev.preventDefault());   // 標題用自己取的名稱
+    applyBrand(w);
     w.once('ready-to-show', () => { w.maximize(); w.show(); });
     w.loadFile(path.join(__dirname, '..', 'www', 'index.html'));
     if (process.env.KN_TEST_DIR && process.env.KN_TEST_JS) w.webContents.once('did-finish-load', async () => {

@@ -233,7 +233,7 @@ window.knSyncPane = async function () {
   const A = window.KNAPP === 'android' && Capacitor.Plugins.App;
   if (A) A.addListener('backButton', () => {
     const card = document.getElementById('card');
-    if (document.documentElement.classList.contains('kedit')) KN.layout.done(); else if (KN.layout && KN.layout.pureOn) KN.layout.pure(false); else if (!KN.pane.hidden) KN.closePane(); else if (card && !card.hidden) card.hidden = true; else A.minimizeApp();
+    if (document.documentElement.classList.contains('kedit')) KN.layout.done(); else if (KN.layout && KN.layout.pureOn) KN.layout.pure(false); else if (!KN.pane.hidden) { if (KN.pane.back) KN.pane.back(); else KN.closePane(); } else if (card && !card.hidden) card.hidden = true; else A.minimizeApp();
   });
 })();
 })();

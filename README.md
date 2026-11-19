@@ -4,8 +4,15 @@
 
 ## 安裝（手機和電腦）
 到 **[下載頁](https://github.com/door410/knowledge_star/releases/latest)**：
-- 手機（Android）：下載 `knowledge-star.apk` → 打開安裝（第一次會問「允許安裝不明來源的應用程式」，按允許）
-- 電腦（Windows）：下載 `knowledge-star-setup.exe` → 雙擊安裝 → 桌面出現「知識網」
+| | 無 AI 版（推薦） | AI 版 |
+|---|---|---|
+| 手機 | [knowledge-star-noai.apk](https://github.com/door410/knowledge_star/releases/latest/download/knowledge-star-noai.apk) | [knowledge-star.apk](https://github.com/door410/knowledge_star/releases/latest/download/knowledge-star.apk) |
+| 電腦 | [knowledge-star-noai-setup.exe](https://github.com/door410/knowledge_star/releases/latest/download/knowledge-star-noai-setup.exe) | [knowledge-star-setup.exe](https://github.com/door410/knowledge_star/releases/latest/download/knowledge-star-setup.exe) |
+
+- 無 AI 版：完全沒有 AI 功能，自己在原文上選字變成知識點。AI 版：可以複製給 AI 拆，另外有問答、導覽、圈選整理。
+- 兩版資料完全相通、一樣同步；同一台只會有一個知識網，裝另一版會直接換過去，資料保留。
+- 手機：打開 .apk 安裝（第一次會問「允許安裝不明來源的應用程式」，按允許）；電腦：雙擊 .exe 安裝 → 桌面出現「知識網」
+- 電腦版的名稱和圖示可以自己改：「外觀」最下面
 - 舊的知識網資料：電腦版「設定 → 同步與備份 → 匯入舊的知識網資料夾」，選舊的「知識網資料」資料夾
 - 同步：每台都在「設定 → 同步與備份 → 連接 Google 雲端硬碟」，登入同一個帳號
 

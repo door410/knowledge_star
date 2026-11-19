@@ -17,7 +17,7 @@ const G = {
     get: () => ({ look3: raw('look3'), settings: raw('settings') }),
     set: v => { put('look3', v.look3); put('settings', v.settings); },
     apply: v => { KN.menu.reloadLook(); if (v.settings && window.knApplyState) knApplyState(Object.assign(JSON.parse(JSON.stringify(st)), v.settings), null); } },
-  ed: { name: '編輯台設定', note: '篩選、點旁文字、卡片、線、關聯類型、快捷鍵、AI 指示、存的檢視', on: true,
+  ed: { name: '編輯台設定', note: window.KN_PLAIN ? '篩選、點旁文字、卡片、線、關聯類型、快捷鍵、存的檢視' : '篩選、點旁文字、卡片、線、關聯類型、快捷鍵、AI 指示、存的檢視', on: true,
     get: () => ({ ed: omit(raw('ed'), ['ui', 'fs']), views: raw('views') }),
     set: v => { const cur = raw('ed') || {}; put('ed', Object.assign({}, v.ed || {}, { ui: cur.ui, fs: cur.fs })); put('views', v.views); },
     apply: () => { if (window.knApplyState) knApplyState(null, raw('ed')); } },

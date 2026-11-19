@@ -5,5 +5,6 @@ contextBridge.exposeInMainWorld('knNative', {
   platform: 'win',
   vfs: { list: () => call('vfs:list'), write: (p, t) => call('vfs:write', p, t), remove: p => call('vfs:remove', p) },
   io: { saveAs: (n, b) => call('io:saveAs', n, b), autoBackup: (n, b) => call('io:autoBackup', n, b), importFolder: () => call('io:importFolder'), openDataDir: () => call('io:openDataDir') },
+  brand: { get: () => call('brand:get'), set: (name, icon, reset) => call('brand:set', name, icon, reset) },
   google: { configured: () => call('google:configured'), signIn: () => call('google:signIn'), token: f => call('google:token', f), signOut: () => call('google:signOut'), request: r => call('google:request', r) },
 });

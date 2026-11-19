@@ -31,6 +31,7 @@ const ITEMS = {
   mode: ['切換星空／簡約', '', () => { const b = document.querySelector('#gMode .c:not(.on)'); if (b) b.click(); applyLook(); }],
   more: ['全部功能', '列出所有功能（包括收起來的）', () => KN.layout && KN.layout.more()] };
 if (window.knTopics) ITEMS.topics = ['主題整理', '主題、子主題改名、搬到別的主題底下、合併', () => knTopics()];
+if (window.KN_PLAIN) { delete ITEMS.lasso; delete ITEMS.ai; ITEMS.ed[1] = '知識網顯示什麼、卡片顯示什麼、快捷鍵'; ITEMS.tour[1] = '選一個主題，一站一站帶你看'; }
 let nameOf = id => ITEMS[id][0];   // layout.js 會換成「改過的名字」
 
 // ---------- 配色 ----------
@@ -253,6 +254,19 @@ function lookPane() {
   P.querySelector('#lkimp').onchange = async e => { const f = e.target.files[0]; if (!f) return; try {
     const k = f.name.replace(/\.[^.]+$/, '').replace(/["'<>]/g, ''), buf = await f.arrayBuffer(), ff = new FontFace('kn-' + k, buf); await ff.load(); document.fonts.add(ff);
     await fst('readwrite', s => s.put(buf, k)); if (!custom.includes(k)) custom.push(k); LOOK.ff = `"kn-${k}"`; saveLook(); toast('已匯入字體：' + k); lookPane(); } catch (er) { toast('這個字體檔讀不了：' + er.message, 6000); } };
+  if (window.knNative && knNative.brand) brandSec(P);
+}
+// 電腦版：自己改 App 名稱和圖示（視窗標題、工作列、桌面和開始功能表的捷徑）
+async function brandSec(P) {
+  const b = await knNative.brand.get();
+  P.insertAdjacentHTML('beforeend', `<div class="lk"><div class="sec">電腦版的名稱和圖示</div>
+   <div class="tr"><b>名稱</b><input type="text" id="brn" value="${E(b.name)}" style="flex:1;min-width:8em"><button class="c" id="brok">改名</button></div>
+   <div class="tr"><b>圖示</b>${b.icon ? `<img src="${b.icon}" width="32" height="32" style="border-radius:6px">` : '<span class="note">預設</span>'}<label class="c" style="cursor:pointer">選一張圖片<input type="file" id="bri" accept="image/png,image/jpeg,image/webp" hidden></label><button class="c" id="brdef">恢復預設</button></div>
+   <p class="note">改了之後，視窗、工作列、桌面和開始功能表的捷徑都會換成新的名稱和圖示。圖片建議正方形。</p></div>`);
+  const done = async (name, icon, reset) => { try { await knNative.brand.set(name, icon, reset); toast('改好了'); lookPane(); } catch (e) { toast('沒改成：' + e.message, 6000); } };
+  P.querySelector('#brok').onclick = () => { const n = P.querySelector('#brn').value.trim(); if (!n) return toast('請填名稱'); done(n); };
+  P.querySelector('#bri').onchange = async e => { const f = e.target.files[0]; if (f) done(null, new Uint8Array(await f.arrayBuffer())); };
+  P.querySelector('#brdef').onclick = () => done(null, null, true);
 }
 window.knLook = lookPane;
 

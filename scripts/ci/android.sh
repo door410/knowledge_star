@@ -10,13 +10,18 @@ KS="${RUNNER_TEMP:-/tmp}/release.keystore"
 echo "$KS_B64" | base64 -d > "$KS"
 export ANDROID_KEYSTORE_FILE="$KS" ANDROID_KEYSTORE_PASSWORD="$KS_PW"
 step_retry "安裝套件" npm ci
-step "建置畫面" npm run build
+# 兩個版本：無 AI 版（knowledge-star-noai.apk）、AI 版（knowledge-star.apk）。同一個 App，裝哪個都會蓋掉另一個，資料保留
+step "建置畫面（無 AI 版）" node scripts/build-web.mjs plain
 step "同步 Android 專案" npx cap sync android
 # 原生程式（Google 登入外掛、MainActivity）放在 native/android/，建置時複製到 Android 專案
 step "加入原生程式" bash -c 'mkdir -p android/app/src/main/java/tw/door410/knowledgestar && cp native/android/*.java android/app/src/main/java/tw/door410/knowledgestar/'
 chmod +x android/gradlew
 step_retry "下載 Gradle" bash -c "cd android && ./gradlew --version --no-daemon"
 NET="-Dorg.gradle.internal.http.socketTimeout=180000 -Dorg.gradle.internal.http.connectionTimeout=180000 -Dorg.gradle.internal.repository.max.retries=6 -Dorg.gradle.internal.repository.initial.backoff=2000"
-step_retry "建置 APK" bash -c "cd android && ./gradlew assembleRelease --no-daemon $NET"
+step_retry "建置 APK（無 AI 版）" bash -c "cd android && ./gradlew assembleRelease --no-daemon $NET"
+cp android/app/build/outputs/apk/release/app-release.apk out/knowledge-star-noai.apk
+step "建置畫面（AI 版）" node scripts/build-web.mjs
+step "更新 Android 畫面" npx cap copy android
+step_retry "建置 APK（AI 版）" bash -c "cd android && ./gradlew assembleRelease --no-daemon $NET"
 cp android/app/build/outputs/apk/release/app-release.apk out/knowledge-star.apk
 rm -f "$KS"

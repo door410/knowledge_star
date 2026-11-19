@@ -132,6 +132,7 @@ qaBtn.onclick = () => {
     if (!hits.length) { out.innerHTML = '<p class="qa-a">資料裡沒有。</p>'; qaLast = { q, html: out.innerHTML }; return; }
     const title = p => (K.sources.find(s => s.id === srcOf(p)) || {}).title || '';
     const refs = '<div class="ksec">找到的知識點</div><div class="kgrid">' + hits.map((p, i) => `<div class="kc cite" tabindex="0" data-id="${E(p.id)}"><div class="t"><span class="kno">${i + 1}</span>${E(p.name)}</div><div class="s">${E(title(p))}</div></div>`).join('') + '</div>';
+    if (!window.aiAsk) { out.innerHTML = refs; bind(); qaLast = { q, html: out.innerHTML }; return; }
     out.innerHTML = '<p class="note">AI 回答中…</p>' + refs; bind();
     let ans = null;
     try {

@@ -10,8 +10,12 @@ step_retry "安裝套件" npm ci
 step_retry "下載 Electron 執行檔" node node_modules/electron/install.js
 step "確認 Electron 執行檔" test -f node_modules/electron/dist/electron.exe
 step "Windows 測試" npm test
-step "建置畫面" npm run build
 export DEBUG="electron-builder,@electron/get*"
-RETRIES=2 step_retry "打包安裝檔" npx electron-builder --win --publish never "-c.extraMetadata.version=${APP_VERSION_NAME:-0.1.0}"
+# 兩個版本：無 AI 版（knowledge-star-noai-setup.exe）、AI 版（knowledge-star-setup.exe）
+step "建置畫面（無 AI 版）" node scripts/build-web.mjs plain
+RETRIES=2 step_retry "打包安裝檔（無 AI 版）" npx electron-builder --win --publish never "-c.extraMetadata.version=${APP_VERSION_NAME:-0.1.0}" "-c.artifactName=knowledge-star-noai-setup.\${ext}"
+cp release/knowledge-star-noai-setup.exe out/
+step "建置畫面（AI 版）" node scripts/build-web.mjs
+RETRIES=2 step_retry "打包安裝檔（AI 版）" npx electron-builder --win --publish never "-c.extraMetadata.version=${APP_VERSION_NAME:-0.1.0}"
 cp release/knowledge-star-setup.exe out/
 rm -f electron/google-client.cjs

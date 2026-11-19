@@ -207,6 +207,7 @@ document.head.append(h('style', {}, `.edp label{display:inline-flex;align-items:
 .ed2 .edp{overflow:auto;padding:10px 14px}
 @media(max-width:520px){#pbody.ed2{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}.ed2 nav{flex-direction:row;flex-wrap:wrap;border-right:0;border-bottom:var(--k-bw,1px) solid var(--k-bd,#8884)}}`));
 const CATS = { net: '知識網', line: '線和關聯', card: '卡片', keys: '選單與按鍵', ai: 'AI 拆點', view: '檢視與復原' };
+if (window.KN_PLAIN) delete CATS.ai;
 const SECMAP = { filter: 'net', ui: 'keys', view: 'view', net: 'net', card: 'card', line: 'line', ai: 'ai' };
 let edCat = 'net';
 const sel = (k, cur, opts) => `<select data-e="${k}">${opts.map(([v, t]) => `<option value="${E(v)}"${String(v) === String(cur) ? ' selected' : ''}>${E(t)}</option>`).join('')}</select>`;

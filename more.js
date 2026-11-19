@@ -60,7 +60,7 @@ const tourDir = () => KN.root.getDirectoryHandle('04-知識網', { create: true 
 async function tourData() { try { return JSON.parse(await readF(await tourDir(), '導覽.json')); } catch (e) { return {}; } }
 function tourList() {
   const ps = KN.realPts(), tops = K.topics.filter(t => !t.parent && ps.some(p => topOf(p) === t.id));
-  openPane('回顧', tabsRow('tour') + (tops.length ? `<div class="ksec">選一個主題，一站一站帶你看${qtip('最後一站會告訴你這個主題還缺什麼。')}</div><div class="kgrid">` + tops.map(t => `<div class="kc" tabindex="0" data-t="${E(t.id)}"><div class="t">${E(t.name)}</div><div class="s">${ps.filter(p => topOf(p) === t.id).length} 點・${K.topics.filter(s => s.parent === t.id).length} 個子主題</div></div>`).join('') + '</div>' : '<p class="kempty">還沒有主題。</p>'));
+  openPane('回顧', tabsRow('tour') + (tops.length ? `<div class="ksec">選一個主題，一站一站帶你看${window.KN_PLAIN ? '' : qtip('最後一站會告訴你這個主題還缺什麼。')}</div><div class="kgrid">` + tops.map(t => `<div class="kc" tabindex="0" data-t="${E(t.id)}"><div class="t">${E(t.name)}</div><div class="s">${ps.filter(p => topOf(p) === t.id).length} 點・${K.topics.filter(s => s.parent === t.id).length} 個子主題</div></div>`).join('') + '</div>' : '<p class="kempty">還沒有主題。</p>'));
   bindTabs(); pbody.querySelectorAll('[data-t]').forEach(b => b.onclick = () => tourStart(b.dataset.t));
 }
 async function tourStart(tid) {
@@ -69,7 +69,7 @@ async function tourStart(tid) {
   const D = KN.root ? await tourData() : {}; let d = D[tid];
   if (!d || d.n !== all.length) {
     d = { n: all.length, sign: '', order: pub.map(p => p.id), gap: '' };
-    try {
+    if (window.aiAsk) try {
       const r = await aiAsk(`這是我知識網裡「${tid}」主題的知識點。請當博物館導覽員。只輸出 JSON：{"牌子":"一句話說這個主題在回答什麼","順序":[知識點編號，照最好懂的參觀順序],"缺口":"一兩句：這個主題還缺哪些重要知識"}\n\n${pub.map((p, i) => `${i + 1}. ${p.name}：${p.desc || ''}`).join('\n')}`);
       const o = pj(r.text) || {}; d.sign = o['牌子'] || ''; d.gap = o['缺口'] || '';
       const ord = (o['順序'] || []).map(n => pub[parseInt(n) - 1]).filter(Boolean); d.order = [...new Set([...ord, ...pub].map(p => p.id))];
@@ -99,7 +99,7 @@ showTip = function (text, x, y, p) {
 
 // ---------- 圈選整理：圈一群點 → AI 建議 → 看過才套用 ----------
 const zoomBar = document.getElementById('zoom'), selBtn = h('button', { className: 'c', textContent: '圈選', title: '圈一群知識點，請 AI 整理' });
-zoomBar.prepend(selBtn); let selOn = false, sel0 = null, box = null;
+if (!window.KN_PLAIN) zoomBar.prepend(selBtn); let selOn = false, sel0 = null, box = null;
 selBtn.onclick = () => { selOn = !selOn; selBtn.classList.toggle('on', selOn); cv.style.cursor = selOn ? 'crosshair' : ''; if (selOn) toast('拖一個框圈住知識點'); };
 cv.addEventListener('pointerdown', e => { if (!selOn) return; e.stopImmediatePropagation(); e.preventDefault(); sel0 = [e.clientX, e.clientY]; box = h('div', { id: 'selBox' }); document.body.append(box); cv.setPointerCapture(e.pointerId); }, true);
 cv.addEventListener('pointermove', e => { if (!selOn || !sel0) return; e.stopImmediatePropagation(); const [a, b] = sel0; Object.assign(box.style, { left: Math.min(a, e.clientX) + 'px', top: Math.min(b, e.clientY) + 'px', width: Math.abs(e.clientX - a) + 'px', height: Math.abs(e.clientY - b) + 'px' }); }, true);
@@ -236,21 +236,4 @@ cv.addEventListener('pointerup', () => {
   }, 50);
 }, true);
 
-// ---------- 先看拆解：AI 重拆（可以寫一句想怎麼拆）----------
-function addResplit() {
-  if (ptitle.textContent !== '先看拆解' || pbody.querySelector('#resplit') || !window.aiAsk) return;
-  const back = [...pbody.querySelectorAll('button')].find(b => /重貼回答/.test(b.textContent)); if (!back) return;
-  back.insertAdjacentHTML('afterend', `<input type="text" id="rsn" placeholder="想怎麼重拆（可不填）" style="min-width:8em;flex:1"><button class="go sub" id="resplit">AI 重拆</button>`);
-  pbody.querySelector('#resplit').onclick = async e => {
-    const job = KN.job; if (!job) return; const b = e.target, note = pbody.querySelector('#rsn').value.trim(); b.disabled = true; b.textContent = '重拆中…';
-    try {
-      let prompt = window.knPromptExtra ? knPromptExtra(KN.buildPrompt()) : KN.buildPrompt();
-      prompt = prompt.replace('\n\nJSON 格式：', `\n7. 這是重拆：上一次的拆法她不滿意，請換個角度重新拆。${note ? '她的要求：' + note : ''}\n\nJSON 格式：`);
-      let text = (await aiAsk(prompt)).text; if (window.knIntegrate) { try { text = await knIntegrate(text); } catch (er) {} }
-      const r = KN.parseAnswer(text); if (!r) throw new Error('AI 的回答看不懂');
-      job.answer = text; job.r = r; KN.step3(); toast('重拆好了');
-    } catch (er) { toast('重拆沒成功：' + er.message, 6000); b.disabled = false; b.textContent = 'AI 重拆'; }
-  };
-}
-new MutationObserver(addResplit).observe(pbody, { childList: true });
 })();
