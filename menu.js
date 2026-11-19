@@ -31,7 +31,7 @@ const ITEMS = {
   mode: ['切換星空／簡約', '', () => { const b = document.querySelector('#gMode .c:not(.on)'); if (b) b.click(); applyLook(); }],
   more: ['全部功能', '列出所有功能（包括收起來的）', () => KN.layout && KN.layout.more()] };
 if (window.knTopics) ITEMS.topics = ['主題整理', '主題、子主題改名、搬到別的主題底下、合併', () => knTopics()];
-if (window.KN_PLAIN) { delete ITEMS.lasso; delete ITEMS.ai; ITEMS.ed[1] = '知識網顯示什麼、卡片顯示什麼、快捷鍵'; ITEMS.tour[1] = '選一個主題，一站一站帶你看'; }
+if (window.KN_PLAIN) { delete ITEMS.lasso; delete ITEMS.ai; ITEMS.ed[1] = '知識網顯示什麼、卡片顯示什麼、快捷鍵、拆點指示'; ITEMS.tour[1] = '選一個主題，一站一站帶你看'; }
 let nameOf = id => ITEMS[id][0];   // layout.js 會換成「改過的名字」
 
 // ---------- 配色 ----------
@@ -128,7 +128,7 @@ html.kt body #toast{top:auto;bottom:56px;max-width:calc(100vw - 24px);text-align
 #menubar>div{display:flex;gap:6px;flex-wrap:wrap;pointer-events:auto}#menubar .rt{justify-content:flex-end}
 .mb{border:var(--k-bw) solid var(--k-bd);background:var(--k-btn);color:var(--k-tx);border-radius:var(--k-r);padding:6px 12px;font:inherit;cursor:pointer}
 .mb.pri{font-weight:600}.mb.on{background:var(--k-tx);color:var(--k-ui)}
-.mpop{position:fixed;z-index:35;background:var(--k-ui);color:var(--k-tx);border:var(--k-bw) solid var(--k-bd);border-radius:var(--k-r);padding:5px;font-size:13px}
+.mpop{position:fixed;z-index:35;width:max-content;max-width:calc(100vw - 16px);background:var(--k-ui);color:var(--k-tx);border:var(--k-bw) solid var(--k-bd);border-radius:var(--k-r);padding:5px;font-size:13px}
 .mpop .lst{display:flex;flex-direction:column;min-width:130px}
 .mpop .lst>button{background:none;border:0;color:inherit;text-align:left;padding:7px 10px;border-radius:calc(var(--k-r) * .6);font:inherit;cursor:pointer;white-space:nowrap}
 .mpop .lst>button:hover,.mpop .lst>button:focus{background:var(--k-btn);outline:none}
@@ -177,7 +177,7 @@ function showHelp(el) {
   hEl = el; hb.textContent = text; hb.hidden = false;
   const a = el.getBoundingClientRect(), W = innerWidth, Hh = hb.offsetHeight, mp = el.closest('.mpop');
   let x, y = a.top - 4;
-  if (mp) { const m = mp.getBoundingClientRect(), rw = el.closest('button').getBoundingClientRect(); x = m.left - 216; y = rw.top; if (x < 4) x = m.right + 6; }   // 選單：說明緊靠清單左邊、對齊那一項
+  if (mp) { const m = mp.getBoundingClientRect(), rw = el.closest('button').getBoundingClientRect(); x = m.left - 216; y = rw.top; if (x < 4) x = m.right + 6; if (x + 210 > W - 4) { x = Math.min(Math.max(4, rw.left), W - 214); y = rw.bottom + 4; } }   // 選單：說明緊靠清單左邊、對齊那一項
   else { x = a.right + 6; if (x + 210 > W - 4) x = a.left - 216; if (x < 4) { x = Math.min(Math.max(4, a.left), W - 214); y = a.bottom + 6; } }   // 面板裡：緊貼在 ? 右邊（放不下貼左邊）
   hb.style.left = x + 'px'; hb.style.top = Math.max(4, Math.min(y, innerHeight - Hh - 4)) + 'px';
 }

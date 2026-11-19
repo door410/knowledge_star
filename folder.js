@@ -17,7 +17,7 @@ body.light #pane{background:#fff;color:#2b2d31;border-color:#0002}
 #pane[hidden]{display:none}
 #pane header{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #ffffff1a}
 body.light #pane header{border-color:#0001}
-#pane header b{font-size:16px;flex:1}
+#pane header b{font-size:16px;flex:1}#ptitle[data-show]{font-size:0!important}#ptitle[data-show]::before{content:attr(data-show);font-size:16px}
 #pane .x{border:none;background:none;color:inherit;font-size:22px;cursor:pointer;opacity:.6}
 #pbody{flex:1;overflow:auto;padding:14px 16px}
 #pane input[type=text],#pane textarea{width:100%;background:transparent;color:inherit;border:1px solid #ffffff33;border-radius:8px;padding:7px 10px;font:inherit}
@@ -105,7 +105,7 @@ table.ib{width:100%;border-collapse:collapse;font-size:13px}.ib th{text-align:le
 #pane .pb{border:none;background:none;color:inherit;font-size:22px;cursor:pointer;padding:0 4px}#pane .pb[hidden]{display:none}
 .ibx{margin-top:14px;border-top:1px solid #8884;padding-top:8px}.ibx summary{cursor:pointer;font-weight:600;padding:6px 0}
 .ibi{display:flex;gap:10px;align-items:center;padding:8px 4px;border-bottom:1px solid #8882}.ibi.on{background:#9B7BFF22;border-radius:8px}.ibi a{flex:1;cursor:pointer;min-width:0}.ibi b{display:block;font-weight:500;overflow-wrap:anywhere}.ibi small{color:#888}.ibi input{width:20px;height:20px}
-#pane ol.steps li{margin:6px 0}.dact{justify-content:flex-end}.mk{position:sticky;bottom:10px;display:block;margin:10px 0 0 auto;z-index:4;box-shadow:0 4px 14px #0006}.mk[hidden]{display:none}
+#pane ol.steps li{margin:6px 0}.dact{display:grid;grid-template-columns:repeat(4,auto);gap:8px;justify-content:end;margin:10px 0}@media(max-width:760px){.dact{grid-template-columns:1fr 1fr 1fr;justify-content:stretch}.dact #next{grid-column:1/-1;order:-1}}.mk{position:sticky;bottom:10px;display:block;margin:10px 0 0 auto;z-index:4;box-shadow:0 4px 14px #0006}.mk[hidden]{display:none}
 `));
 const fbar = h('div', { id: 'fbar', className: 'g' }, '<button class="c" id="addBtn">＋ 丟東西進去</button><button class="c" id="newBtn">＋ 知識點</button><button class="c" id="folderBtn">連上資料夾</button>');
 document.getElementById('ui').append(fbar);
@@ -119,11 +119,11 @@ pane.querySelector('#psz').onclick = () => { const k = pane.dataset.k, P = store
 const toast = (t, ms = 3500) => { toastEl.textContent = t; toastEl.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => toastEl.style.display = 'none', ms); };
 // 每個面板都能在「小框（右側，可拖可拉）」和「大框（置中）」之間切換（標題列 ⤢），各自記住；預設：丟東西、拆解、新增知識點、圈選整理是大框（11/7 她選）
 const BIG = ['丟東西', '新增知識點', '圈選整理', '資料夾是空的'];
-const kindOf = (title, html) => /data-rv=|id="rb"/.test(html) || /^導覽/.test(title) ? '回顧' : /^(丟東西進去|貼回 AI 的回答|看拆解)/.test(title) ? '丟東西' : title;
+const kindOf = (title, html) => /data-rv=|id="rb"/.test(html) || /^導覽/.test(title) ? '回顧' : /^(丟東西進去|貼回 AI 的回答|查看知識點)/.test(title) ? '丟東西' : title;
 const PHONE = () => matchMedia('(max-width:760px)').matches;
 const isSide = k => (store.get('psize', {})[k] || (BIG.includes(k) ? 'big' : 'side')) === 'side';
 const SIDE = { includes: title => isSide(kindOf(title, '')) };   // 給舊的程式用（卡片要不要一起關）
-function openPane(title, html, back) { const k = kindOf(title, html); pane.dataset.k = k; pane.classList.toggle('side', isSide(k) && !(PHONE() && BIG.includes(k))); pane.back = back || null; pane.querySelector('#pback').hidden = !back; pbody.className = ''; pane.querySelector('#ptitle').textContent = title; pbody.innerHTML = html; pbody.scrollTop = 0; pane.hidden = false; paneOpen = true; if (!isSide(k)) card.hidden = true; }   // 小框開著時卡片可以一起留著（會自動排在旁邊）
+function openPane(title, html, back) { const k = kindOf(title, html); pane.dataset.k = k; pane.classList.toggle('side', isSide(k) && !(PHONE() && BIG.includes(k))); pane.back = back || null; pane.querySelector('#pback').hidden = !back; pbody.className = ''; { const pt = pane.querySelector('#ptitle'), show = window.KN && KN.paneTitle ? KN.paneTitle(title) : title; pt.textContent = title; if (show !== title) pt.dataset.show = show; else delete pt.dataset.show; } pbody.innerHTML = html; pbody.scrollTop = 0; pane.hidden = false; paneOpen = true; if (!isSide(k)) card.hidden = true; }   // 小框開著時卡片可以一起留著（會自動排在旁邊）
 function closePane() { pane.hidden = true; paneOpen = false; pane.back = null; pbody.classList.remove('rvmode'); }
 const folderBtn = document.getElementById('folderBtn');
 function setFolderBtn() { folderBtn.textContent = APP ? '同步與備份' : root ? '資料夾：' + root.name : '連上資料夾'; folderBtn.classList.toggle('on', !!root); }
@@ -294,7 +294,7 @@ async function writeInbox(it) {   // 存成 .md（手機來的 .txt 加上標籤
 }
 
 // 進度記在這台裝置：不小心跳出去，再按「丟東西進去」會回到剛剛那一步
-const PLAIN = !!window.KN_PLAIN;   // 無 AI 版
+const PLAIN = !!window.KN_PLAIN;   // 無 AI 版（不接 AI 金鑰；複製給 AI 拆解的手動流程兩版都有）
 const DROP = 'kn-drop'; let stage = null;
 const blank = () => ({ title: '', text: '', priv: false, inbox: null });
 const saveDrop = () => { try { localStorage.setItem(DROP, JSON.stringify({ draft, job, stage })); } catch (e) {} };
@@ -311,63 +311,57 @@ async function inboxPane() {
   const items = await readInbox(); items.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
   const tags = [...new Set(items.map(i => i.tag).filter(Boolean))];
   openPane('丟東西進去', `
-   <p class="note">${PLAIN ? '① 貼上文章 → ② 按「開始拆」→ ③ 在原文上選一段字，變成知識點' : '① 貼上文章 → ② 按「複製給 AI」，到 AI 貼上 → ③ 把 AI 的回答貼回來'}</p>
+   <p class="note">① 貼上文章 → ② 按「複製給AI拆解」，到 AI 貼上 → ③ 把 AI 回的 JSON 貼回來，按「查看知識點」</p>
    <input type="text" id="dtitle" placeholder="標題（可不填）">
-   <textarea id="dtext" rows="8" placeholder="${PLAIN ? '貼上要拆的文章' : '貼上要拆的文章（或 AI 拆好的回答）'}"></textarea>
-   <div class="row"><label><input type="checkbox" id="dpriv"> 私人</label><span style="flex:1"></span><button class="go sub" id="dclear">清空</button></div>
-   <div class="row dact"><button class="go sub" id="keep">先存著，之後再拆</button><button class="go" id="next"></button></div>
-   ${PLAIN ? '' : '<p class="note" id="dbad" hidden>回答格式不完整，請 AI 再回一次。</p>'}
-   <div class="row"><button class="go sub" id="dnew">＋ 不用文章，直接寫一個知識點</button></div>
+   <textarea id="dtext" rows="8" placeholder="貼上要拆的文章，或 AI 回的 JSON"></textarea>
+   <p class="note" id="dbad" hidden>JSON 格式不完整，請 AI 再回一次。</p>
+   <div class="dact"><button class="go sub" id="dnew">＋知識點</button><button class="go sub" id="keep">先保存</button><button class="go sub" id="dclear">清空</button><button class="go" id="next"></button></div>
    ${items.length ? `<details class="ibx"${draft.text ? '' : ' open'}><summary>先存著的文章（${items.length}）</summary>
-    <p class="note">點標題＝放到上面的框裡拆；也可以勾好幾篇一起拆。</p>
+    <p class="note">點標題＝放回上面的框；也可以勾好幾篇一起拆。</p>
     ${tags.length ? `<div class="row">${tags.map(t => `<button class="go sub tg">${esc(t)}</button>`).join('')}</div>` : ''}
-    <div class="ibl">${items.map((it, i) => `<div class="ibi${draft.inbox === it.n ? ' on' : ''}" data-i="${i}"><input type="checkbox" class="pick"${it.priv && !PLAIN ? ' disabled' : ''}><a class="open"><b>${esc(it.title)}</b><small>${it.date}・${it.body.length} 字${it.tag ? '・' + esc(it.tag) : ''}${it.priv ? '・私人' : ''}</small></a></div>`).join('')}</div>
+    <div class="ibl">${items.map((it, i) => `<div class="ibi${draft.inbox === it.n ? ' on' : ''}" data-i="${i}"><input type="checkbox" class="pick"><a class="open"><b>${esc(it.title)}</b><small>${it.date}・${it.body.length} 字${it.tag ? '・' + esc(it.tag) : ''}${it.priv ? '・私人' : ''}</small></a></div>`).join('')}</div>
     <div class="row"><button class="go" id="multi" disabled>勾選的一起拆</button><button class="go sub" id="del" disabled>刪除勾選</button></div></details>` : ''}`);
-  const T = pbody.querySelector('#dtitle'), X = pbody.querySelector('#dtext'), Pv = pbody.querySelector('#dpriv'), N = pbody.querySelector('#next');
-  T.value = draft.title; X.value = draft.text; Pv.checked = draft.priv;
-  const Kp = pbody.querySelector('#keep'), Bad = pbody.querySelector('#dbad'), PvL = Pv.closest('label');
+  const T = pbody.querySelector('#dtitle'), X = pbody.querySelector('#dtext'), N = pbody.querySelector('#next');
+  T.value = draft.title; X.value = draft.text; draft.priv = false;
+  const Kp = pbody.querySelector('#keep'), Bad = pbody.querySelector('#dbad');
   let kind = 'raw';   // raw＝要拆的文章；ans＝AI 拆好的回答（JSON）；bad＝像回答但格式壞了
   const sync = () => {
-    draft.title = T.value.trim(); draft.text = X.value; draft.priv = Pv.checked; saveDrop();
+    draft.title = T.value.trim(); draft.text = X.value; saveDrop();
     kind = 'raw';
-    if (!PLAIN && /"(知識點|points)"\s*:/.test(draft.text)) { const keep = job; job = { arts: [{ title: '', text: draft.text }] }; kind = parseAnswer(draft.text, true) ? 'ans' : 'bad'; job = keep; }
+    if (/"(知識點|points)"\s*:/.test(draft.text)) { const keep = job; job = { arts: [{ title: '', text: draft.text }] }; kind = parseAnswer(draft.text, true) ? 'ans' : 'bad'; job = keep; }
     const raw = kind === 'raw';
-    N.textContent = PLAIN ? '開始拆' : kind === 'ans' ? '看拆解' : draft.priv ? '自己拆（不送 AI）' : '複製給 AI';
-    N.disabled = kind === 'bad'; if (Bad) Bad.hidden = kind !== 'bad'; Kp.hidden = !raw; PvL.hidden = !raw;
+    N.textContent = kind === 'raw' ? '複製給AI拆解' : '查看知識點';
+    N.disabled = kind === 'bad'; Bad.hidden = kind !== 'bad'; Kp.hidden = !raw;
   };
-  [T, X, Pv].forEach(e => e.oninput = e.onchange = sync); sync();
+  [T, X].forEach(e => e.oninput = e.onchange = sync); sync();
   const ready = () => { sync(); if (!draft.text.trim()) { toast('還沒有貼上內容'); return false; } if (!draft.title) draft.title = draft.text.trim().split('\n')[0].replace(/^#+\s*/, '').slice(0, 30); return true; };
-  pbody.querySelector('#dclear').onclick = () => { draft = blank(); T.value = X.value = ''; Pv.checked = false; sync(); pbody.querySelectorAll('.ibi.on').forEach(e => e.classList.remove('on')); };
+  pbody.querySelector('#dclear').onclick = () => { draft = blank(); T.value = X.value = ''; sync(); pbody.querySelectorAll('.ibi.on').forEach(e => e.classList.remove('on')); };
   Kp.onclick = async () => {
     if (!ready()) return;
     const old = draft.inbox && items.find(i => i.n === draft.inbox);
     await writeInbox(old ? Object.assign(old, { title: draft.title, body: draft.text, priv: draft.priv }) : { title: draft.title, body: draft.text, from: window.KNAPP === 'android' ? '手機' : '電腦', date: today(), tag: '', priv: draft.priv });
-    draft = blank(); inboxPane(); toast('已存到「先存著的文章」');
+    draft = blank(); inboxPane(); toast('已保存到「先存著的文章」');
   };
   N.onclick = () => {
     if (!ready()) return;
     const a = { title: draft.title, text: draft.text, priv: draft.priv, inbox: draft.inbox };
-    if (kind === 'ans') { a.priv = false; if (!asAnswer(a)) toast('回答格式不完整，請 AI 再回一次。', 6000); return; }
-    if (PLAIN || a.priv) { const o = job && job.manual && job.arts.length === 1 && job.arts[0];   // 同一篇：接著拆，剛做的點不會不見
-      if (o && o.text === a.text) { Object.assign(o, a); return step3(); } return manual([a]); }
+    if (kind === 'ans') { if (!asAnswer(a)) toast('JSON 格式不完整，請 AI 再回一次。', 6000); return; }
     startJob([a], 'copy');
   };
   pbody.querySelector('#dnew').onclick = () => newPoint(inboxPane);
   const picked = () => [...pbody.querySelectorAll('.ibi')].filter(r => r.querySelector('.pick').checked).map(r => items[+r.dataset.i]);
   const upd = () => { const n = picked().length, m = pbody.querySelector('#multi'); if (!m) return; m.disabled = pbody.querySelector('#del').disabled = !n;
-    const len = picked().reduce((s, i) => s + i.body.length, 0); m.textContent = n ? `勾選的 ${n} 篇一起拆` + (!PLAIN && len > BATCH_MAX ? `（分 ${batches(picked()).length} 次）` : '') : '勾選的一起拆'; };
+    const len = picked().reduce((s, i) => s + i.body.length, 0); m.textContent = n ? `勾選的 ${n} 篇一起拆` + (len > BATCH_MAX ? `（分 ${batches(picked()).length} 次）` : '') : '勾選的一起拆'; };
   pbody.querySelectorAll('.pick').forEach(c => c.onchange = upd);
-  pbody.querySelectorAll('.tg').forEach(b => b.onclick = () => { pbody.querySelectorAll('.ibi').forEach(r => { const it = items[+r.dataset.i], c = r.querySelector('.pick'); if (!c.disabled) c.checked = it.tag === b.textContent; }); upd(); });
-  pbody.querySelectorAll('.open').forEach(a => a.onclick = () => { const it = items[+a.closest('.ibi').dataset.i]; draft = { title: it.title, text: it.body, priv: it.priv, inbox: it.n }; T.value = it.title; X.value = it.body; Pv.checked = it.priv; sync();
+  pbody.querySelectorAll('.tg').forEach(b => b.onclick = () => { pbody.querySelectorAll('.ibi').forEach(r => { r.querySelector('.pick').checked = items[+r.dataset.i].tag === b.textContent; }); upd(); });
+  pbody.querySelectorAll('.open').forEach(a => a.onclick = () => { const it = items[+a.closest('.ibi').dataset.i]; draft = { title: it.title, text: it.body, priv: it.priv, inbox: it.n }; T.value = it.title; X.value = it.body; sync();
     pbody.querySelectorAll('.ibi').forEach(e => e.classList.toggle('on', e === a.closest('.ibi'))); pbody.scrollTop = 0; toast(`「${it.title}」放到上面了，按「${N.textContent}」`); });
   const m = pbody.querySelector('#multi');
   if (m) {
-    m.onclick = () => { const arts = picked().map(it => ({ title: it.title, text: it.body, priv: it.priv, inbox: it.n })); PLAIN ? manual(arts) : startJob(arts); };
+    m.onclick = () => startJob(picked().map(it => ({ title: it.title, text: it.body, priv: false, inbox: it.n })));
     pbody.querySelector('#del').onclick = async () => { const ib = await root.getDirectoryHandle('00-收件匣'); for (const it of picked()) { try { await ib.removeEntry(it.n); } catch (e) {} } inboxPane(); toast(APP ? '已刪除（「同步與備份」的回收桶可救回）' : '已刪除（雲端硬碟垃圾桶可救回）'); };
   }
 }
-// 自己拆：直接看原文，選字變成知識點
-function manual(arts) { job = { arts, r: { points: [], links: [] }, manual: true }; step3(); }
 function batches(arts) { const out = []; let cur = [], len = 0;
   arts.forEach(a => { const l = (a.text || a.body).length; if (cur.length && len + l > BATCH_MAX) { out.push(cur); cur = []; len = 0; } cur.push(a); len += l; });
   if (cur.length) out.push(cur); return out; }
@@ -426,7 +420,7 @@ function step2() {
    <ol class="steps"><li><span id="cst">${job.copied ? '給 AI 的內容已複製 ✓' : '複製給 AI 的內容'}</span> <button class="go sub" id="copy">${job.copied ? '再複製一次' : '複製'}</button></li>
     <li>打開 ChatGPT、Gemini 或 Claude，貼上、送出</li><li>把 AI 的整段回答貼到下面</li></ol>
    <textarea id="ans" rows="10" placeholder="在這裡貼上 AI 的回答"></textarea>
-   <div class="row"><button class="go" id="review">看拆解</button></div>
+   <div class="row"><button class="go" id="review">查看知識點</button></div>
    <details><summary class="note">看給 AI 的內容（${prompt.length} 字）</summary><textarea id="pr" rows="8" readonly></textarea></details>`, inboxPane);
   const pr = pbody.querySelector('#pr'), ans = pbody.querySelector('#ans'); pr.value = prompt; ans.value = job.answer || '';
   ans.oninput = () => { job.answer = ans.value; saveDrop(); };
@@ -501,9 +495,9 @@ let rv = { art: 0, tab: 'txt', open: null };
 function step3() {
   stage = 'rv'; saveDrop();
   const r = job.r; r.points.forEach((p, i) => p.color = p.color || HL[i % HL.length]);
-  rv = { art: 0, tab: 'txt', open: null, full: !!job.manual, split: !PHONE() && store.get('rvSplit', false), lay: store.get('rvLay', 'xls') };
-  const back = () => { pbody.classList.remove('rvmode'); if (job.manual || job.arts[0].json) inboxPane(); else step2(); };
-  openPane('看拆解', `<div class="rvbar"><span id="arts"></span><span style="flex:1"></span><button class="go" id="save">放進知識網</button></div><div id="rvw"></div>
+  rv = { art: 0, tab: 'txt', open: null, full: false, split: !PHONE() && store.get('rvSplit', false), lay: store.get('rvLay', 'xls') };
+  const back = () => { pbody.classList.remove('rvmode'); if (job.arts[0].json) inboxPane(); else step2(); };
+  openPane('查看知識點', `<div class="rvbar"><span id="arts"></span><span style="flex:1"></span><button class="go" id="save">放進知識網</button></div><div id="rvw"></div>
    ${dl('tops', topNames())}${dl('subs', subNames())}${dl('allp', [...r.points.map(p => p.name), ...realPts().map(p => p.name)])}`, back);
   pbody.classList.add('rvmode');
   pbody.querySelector('#save').onclick = () => { if (!r.points.some(p => p.on && p.name.trim()) && !confirm('還沒有知識點，只存原文就好嗎？')) return; pbody.classList.remove('rvmode'); saveJob(); };
@@ -610,7 +604,7 @@ async function saveJob() {
       const a = job.arts[ai];
       const dn = await uniqueName(kd, safe(date + ' ' + a.title), '', 'dir'), dh = await kd.getDirectoryHandle(dn, { create: true });
       await writeFile(dh, '原文.md', fm({ 標題: a.title, 日期: date, 類型: a.json ? 'AI 回答' : a.inbox ? '收件匣' : '貼上文字', 私人: a.priv }) + a.text.trim() + '\n');
-      for (const p of pts.filter(p => (p.art || 0) === ai)) await writeFile(dh, await uniqueName(dh, safe(p.name), '.md'), pointMd({ ...p, name: p.name.trim(), by: p.mine ? (PLAIN ? '自己拆' : '自己新增') : '手動模式（貼給 AI）', created: date, priv: a.priv }));
+      for (const p of pts.filter(p => (p.art || 0) === ai)) await writeFile(dh, await uniqueName(dh, safe(p.name), '.md'), pointMd({ ...p, name: p.name.trim(), by: p.mine ? '自己新增' : '手動模式（貼給 AI）', created: date, priv: a.priv }));
       if (a.inbox) { try { const ib = await root.getDirectoryHandle('00-收件匣'); await ib.removeEntry(a.inbox); } catch (e) {} }
     }
     toast(pts.length ? `已放進知識網：${pts.length} 個知識點` : '已存好原文（私人）', 5000);
@@ -631,7 +625,7 @@ async function newPoint(back) {
    <label>來源<select id="fo"><option value="">我自己</option>${srcs.map(s => `<option value="${esc(s.id)}">${esc(s.date + ' ' + s.title)}</option>`).join('')}</select></label>
    <label>原文出處<textarea id="fq" rows="2"></textarea></label>
    <b>關聯</b><div id="frel"></div><button class="go sub" id="fadd">＋ 關聯</button></div>
-   <div class="row"><button class="go" id="fsave">存</button></div>
+   <div class="row"><button class="go" id="fsave">保存</button></div>
    ${dl('tops', topNames())}<datalist id="subs"></datalist>${dl('allp', realPts().map(p => p.name))}`, back);
   const subs = () => pbody.querySelector('#subs').innerHTML = subNames(pbody.querySelector('#ft').value.trim()).map(n => `<option value="${esc(n)}">`).join('');
   pbody.querySelector('#ft').oninput = subs; subs();

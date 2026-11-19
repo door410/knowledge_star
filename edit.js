@@ -207,7 +207,7 @@ document.head.append(h('style', {}, `.edp label{display:inline-flex;align-items:
 .ed2 .edp{overflow:auto;padding:10px 14px}
 @media(max-width:520px){#pbody.ed2{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}.ed2 nav{flex-direction:row;flex-wrap:wrap;border-right:0;border-bottom:var(--k-bw,1px) solid var(--k-bd,#8884)}}`));
 const CATS = { net: '知識網', line: '線和關聯', card: '卡片', keys: '選單與按鍵', ai: 'AI 拆點', view: '檢視與復原' };
-if (window.KN_PLAIN) delete CATS.ai;
+
 const SECMAP = { filter: 'net', ui: 'keys', view: 'view', net: 'net', card: 'card', line: 'line', ai: 'ai' };
 let edCat = 'net';
 const sel = (k, cur, opts) => `<select data-e="${k}">${opts.map(([v, t]) => `<option value="${E(v)}"${String(v) === String(cur) ? ' selected' : ''}>${E(t)}</option>`).join('')}</select>`;
@@ -239,8 +239,8 @@ function catHtml(c) {
     Object.keys(KEYS).map(a => row(KEYS[a], `<button class="c" data-key="${a}">${capture === a ? '按一個鍵…' : keyName(ED.keys[a] || '')}</button>`)).join('') +
     '<p class="note">快捷鍵：按右邊的鈕，再按想用的鍵；Backspace 清除。</p>';
   if (c === 'ai') return row('拆點粗細', sel('grain', ED.grain, [['coarse', '粗（點少）'], ['mid', '中'], ['fine', '細（點多）']]), '交給 AI 拆的時候，要拆得多細。') +
-    row('給 AI 的補充指示', `<textarea data-e="aiNote" rows="3" placeholder="例如：例子也要拆成點">${E(ED.aiNote)}</textarea>`, '每次拆點都會附上這句。', true) +
-    row('AI 金鑰', '<button class="c" id="eai">打開 AI 設定</button>', 'Gemini、Groq 的金鑰（只存在這台電腦的瀏覽器）。');
+    row('給 AI 的補充指示', `<textarea data-e="aiNote" rows="3" placeholder="例如：例子也要拆成點">${E(ED.aiNote)}</textarea>`, '每次拆點都會附上這句。', true) + (window.KN_PLAIN ? '' :
+    row('AI 金鑰', '<button class="c" id="eai">打開 AI 設定</button>', 'Gemini、Groq 的金鑰（只存在這台電腦的瀏覽器）。'));
   if (c === 'view') return row('存成檢視', `<input type="text" id="vname" placeholder="名稱" style="flex:1;min-width:0"><button class="c" id="vsave">存</button>`, '把現在的顯示、篩選、卡片、線的設定存起來，之後一鍵切換。') +
     views.map((v, i) => `<div class="tr"><span style="flex:1">${E(v.name)}</span><button class="c" data-va="${i}">套用</button><button class="c" data-vx="${i}">×</button></div>`).join('') +
     row('復原', '<button class="c" id="eun">↶ 復原</button><button class="c" id="ere">↷ 重做</button><button class="c" id="edef">恢復預設</button>', '設定改壞了可以退回。知識內容（刪掉、改掉的點）在「整理 ▾ › 紀錄與復原」。');

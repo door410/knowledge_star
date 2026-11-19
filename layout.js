@@ -42,6 +42,9 @@ let BAR = normBar(store.get('bar', null) || (store.get('menu2', null) ? fromOld(
 let BOT = normBot(store.get('bottom', null));
 const saveBar = () => store.set('bar', BAR), saveBot = () => store.set('bottom', BOT);
 const label = f => BAR.names[f] || ITEMS[f][0];
+const PANE_T = { new: '新增知識點' };   // 按鈕名和面板標題不一樣的
+KN.paneTitle = t => { const nm = Object.assign({}, ...(BOT.slots || []).filter(x => x.short).map(x => ({ [x.f]: x.short })), BAR.names);   // 上方改的名字優先，其次是底部列改的
+  for (const f in nm) { const d = PANE_T[f] || (ITEMS[f] && ITEMS[f][0]), c = nm[f]; if (!d || !c) continue; if (t === d) return c; if (t.startsWith(d + '：')) return c + t.slice(d.length); } return t; };
 MN.setNameOf(label);
 const run = f => { MN.closePop(); hideMore(); ITEMS[f][2](); };
 
@@ -62,7 +65,7 @@ html.kpure #menubar,html.kpure #kbot,html.kpure #zoom{display:none!important}
 .kmore .hd{font-size:12px;opacity:.6;padding:8px 10px 2px}
 /* ===== 編輯版面 ===== */
 html.kedit #zoom,html.kedit #kbot{display:none!important}
-html.kedit #menubar{pointer-events:auto;align-items:flex-start}
+html.kedit #menubar{pointer-events:auto;align-items:flex-start;max-height:calc(100vh - min(48vh,460px) - 40px);overflow-y:auto;overscroll-behavior:contain}
 .kz{display:flex;gap:6px;flex-wrap:wrap;align-items:flex-start;min-height:36px;min-width:110px;padding:5px;border:1.5px dashed color-mix(in srgb,var(--k-tx) 30%,transparent);border-radius:calc(var(--k-r) + 2px);background:color-mix(in srgb,var(--k-ui) 80%,transparent)}
 .kz:empty::before{content:attr(data-empty);opacity:.5;font-size:12px;padding:6px 4px}
 .kz.over{border-color:var(--k-sel);border-style:solid}
@@ -71,7 +74,7 @@ html.kedit #menubar{pointer-events:auto;align-items:flex-start}
 .kch .kx,.kgh .kx{display:inline-grid;place-items:center;width:18px;height:18px;margin:-2px -4px -2px 2px;border-radius:50%;opacity:.55;cursor:pointer;font-style:normal;font-size:14px;line-height:1}
 .kch .kx:hover,.kgh .kx:hover{opacity:1;background:color-mix(in srgb,var(--k-tx) 15%,transparent)}
 .kch input,.kgh input{font:inherit;color:inherit;background:transparent;border:0;border-bottom:1px solid var(--k-sel);outline:none;width:7em;padding:0}
-.kgr{display:flex;flex-direction:column;gap:4px;border:var(--k-bw) solid var(--k-bd);border-radius:calc(var(--k-r) + 2px);padding:5px;background:var(--k-ui);touch-action:none}
+.kgr{display:flex;flex-direction:column;gap:4px;border:var(--k-bw) solid var(--k-bd);border-radius:calc(var(--k-r) + 2px);padding:5px;background:var(--k-ui);touch-action:pan-y}
 .kgr>.kz{flex-direction:column;align-items:stretch;min-width:120px;border-style:dotted}
 .kgh{display:flex;align-items:center;gap:4px;font-weight:600;padding:2px 2px 0}
 .kgh .kgrip{cursor:grab;opacity:.5;padding:0 3px;touch-action:none;user-select:none}.kgh input{flex:1;width:6em;font-weight:600}
@@ -85,7 +88,7 @@ html.kedit #menubar{pointer-events:auto;align-items:flex-start}
 #kedit .sub label{display:inline-flex;gap:4px;align-items:center;opacity:1}
 #kedit button.c{padding:5px 12px}
 #kedit .note{font-size:12px;opacity:.6;margin:4px 0 0}
-#kedit .kz[data-z="B"]{flex-wrap:nowrap;overflow-x:auto}
+#kedit .kz[data-z="B"]{flex-wrap:wrap}
 #kedit .kz[data-z="B"] .kch{flex:0 0 auto}
 .kfold{cursor:pointer;user-select:none}
 .kfold::before{content:'';display:inline-block;width:0;height:0;border-left:4.5px solid transparent;border-right:4.5px solid transparent;border-top:6px solid currentColor;margin-right:7px;vertical-align:2px;opacity:.6;transition:transform .15s}
@@ -275,6 +278,7 @@ addEventListener('pointermove', e => {
   clearMarks(); const t = target(e.clientX, e.clientY); D.t = t;
   if (t) { t.z.classList.add('over'); if (t.before) t.before.classList.add('kins'); else t.z.classList.add('kend'); }
   // 拖到編輯框邊緣時自動捲
+  { const mb = document.getElementById('menubar'), r = mb.getBoundingClientRect(); if (e.clientY < r.top + 30) mb.scrollTop -= 8; else if (e.clientY > r.bottom - 30 && e.clientY < r.bottom) mb.scrollTop += 8; }   // 上方區塊也會自動捲
   if (edEl) { const r = edEl.getBoundingClientRect(); if (e.clientY > r.top && e.clientY < r.top + 30) edEl.scrollTop -= 8; else if (e.clientY > r.bottom - 30 && e.clientY < r.bottom) edEl.scrollTop += 8; }
 });
 addEventListener('pointerup', e => {
