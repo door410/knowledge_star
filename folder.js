@@ -105,7 +105,7 @@ table.ib{width:100%;border-collapse:collapse;font-size:13px}.ib th{text-align:le
 #pane .pb{border:none;background:none;color:inherit;font-size:22px;cursor:pointer;padding:0 4px}#pane .pb[hidden]{display:none}
 .ibx{margin-top:14px;border-top:1px solid #8884;padding-top:8px}.ibx summary{cursor:pointer;font-weight:600;padding:6px 0}
 .ibi{display:flex;gap:10px;align-items:center;padding:8px 4px;border-bottom:1px solid #8882}.ibi.on{background:#9B7BFF22;border-radius:8px}.ibi a{flex:1;cursor:pointer;min-width:0}.ibi b{display:block;font-weight:500;overflow-wrap:anywhere}.ibi small{color:#888}.ibi input{width:20px;height:20px}
-#pane ol.steps li{margin:6px 0}.dact{display:grid;grid-template-columns:repeat(4,auto);gap:8px;justify-content:end;margin:10px 0}@media(max-width:760px){.dact{grid-template-columns:1fr 1fr 1fr;justify-content:stretch}.dact #next{grid-column:1/-1;order:-1}}.mk{position:sticky;bottom:10px;display:block;margin:10px 0 0 auto;z-index:4;box-shadow:0 4px 14px #0006}.mk[hidden]{display:none}
+#pane ol.steps li{margin:6px 0}#pane .fbtns,#pane .dans{justify-content:center}#pane .dtt{margin:0 0 8px;font-weight:600;opacity:.85}.dact{display:grid;grid-template-columns:repeat(4,auto);gap:8px;justify-content:end;margin:10px 0}@media(max-width:760px){.dact{grid-template-columns:1fr 1fr 1fr;justify-content:stretch}.dact #next{grid-column:1/-1;order:-1}}.mk{position:sticky;bottom:10px;display:block;margin:10px 0 0 auto;z-index:4;box-shadow:0 4px 14px #0006}.mk[hidden]{display:none}
 `));
 const fbar = h('div', { id: 'fbar', className: 'g' }, '<button class="c" id="addBtn">＋ 丟東西進去</button><button class="c" id="newBtn">＋ 知識點</button><button class="c" id="folderBtn">連上資料夾</button>');
 document.getElementById('ui').append(fbar);
@@ -311,13 +311,11 @@ async function inboxPane() {
   const items = await readInbox(); items.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
   const tags = [...new Set(items.map(i => i.tag).filter(Boolean))];
   openPane('丟東西進去', `
-   <p class="note">① 貼上文章 → ② 按「複製給AI拆解」，到 AI 貼上 → ③ 把 AI 回的 JSON 貼回來，按「查看知識點」</p>
-   <input type="text" id="dtitle" placeholder="標題（可不填）">
-   <textarea id="dtext" rows="8" placeholder="貼上要拆的文章，或 AI 回的 JSON"></textarea>
-   <p class="note" id="dbad" hidden>JSON 格式不完整，請 AI 再回一次。</p>
+   <input type="text" id="dtitle" placeholder="標題">
+   <textarea id="dtext" rows="8" placeholder="內容"></textarea>
+   <p class="note" id="dbad" hidden>JSON 不完整</p>
    <div class="dact"><button class="go sub" id="dnew">＋知識點</button><button class="go sub" id="keep">先保存</button><button class="go sub" id="dclear">清空</button><button class="go" id="next"></button></div>
    ${items.length ? `<details class="ibx"${draft.text ? '' : ' open'}><summary>先存著的文章（${items.length}）</summary>
-    <p class="note">點標題＝放回上面的框；也可以勾好幾篇一起拆。</p>
     ${tags.length ? `<div class="row">${tags.map(t => `<button class="go sub tg">${esc(t)}</button>`).join('')}</div>` : ''}
     <div class="ibl">${items.map((it, i) => `<div class="ibi${draft.inbox === it.n ? ' on' : ''}" data-i="${i}"><input type="checkbox" class="pick"><a class="open"><b>${esc(it.title)}</b><small>${it.date}・${it.body.length} 字${it.tag ? '・' + esc(it.tag) : ''}${it.priv ? '・私人' : ''}</small></a></div>`).join('')}</div>
     <div class="row"><button class="go" id="multi" disabled>勾選的一起拆</button><button class="go sub" id="del" disabled>刪除勾選</button></div></details>` : ''}`);
@@ -355,7 +353,7 @@ async function inboxPane() {
   pbody.querySelectorAll('.pick').forEach(c => c.onchange = upd);
   pbody.querySelectorAll('.tg').forEach(b => b.onclick = () => { pbody.querySelectorAll('.ibi').forEach(r => { r.querySelector('.pick').checked = items[+r.dataset.i].tag === b.textContent; }); upd(); });
   pbody.querySelectorAll('.open').forEach(a => a.onclick = () => { const it = items[+a.closest('.ibi').dataset.i]; draft = { title: it.title, text: it.body, priv: it.priv, inbox: it.n }; T.value = it.title; X.value = it.body; sync();
-    pbody.querySelectorAll('.ibi').forEach(e => e.classList.toggle('on', e === a.closest('.ibi'))); pbody.scrollTop = 0; toast(`「${it.title}」放到上面了，按「${N.textContent}」`); });
+    pbody.querySelectorAll('.ibi').forEach(e => e.classList.toggle('on', e === a.closest('.ibi'))); pbody.scrollTop = 0; });
   const m = pbody.querySelector('#multi');
   if (m) {
     m.onclick = () => startJob(picked().map(it => ({ title: it.title, text: it.body, priv: false, inbox: it.n })));
@@ -416,19 +414,17 @@ function step2() {
   stage = 'ans'; saveDrop();
   const prompt = window.knPromptExtra ? knPromptExtra(buildPrompt()) : buildPrompt();
   openPane('貼回 AI 的回答' + (job.total > 1 ? `（第 ${job.bi + 1}／${job.total} 次）` : ''), `
-   <p class="note">${esc(job.arts.map(a => a.title).join('、'))}</p>
-   <ol class="steps"><li><span id="cst">${job.copied ? '給 AI 的內容已複製 ✓' : '複製給 AI 的內容'}</span> <button class="go sub" id="copy">${job.copied ? '再複製一次' : '複製'}</button></li>
-    <li>打開 ChatGPT、Gemini 或 Claude，貼上、送出</li><li>把 AI 的整段回答貼到下面</li></ol>
-   <textarea id="ans" rows="10" placeholder="在這裡貼上 AI 的回答"></textarea>
-   <div class="row"><button class="go" id="review">查看知識點</button></div>
-   <details><summary class="note">看給 AI 的內容（${prompt.length} 字）</summary><textarea id="pr" rows="8" readonly></textarea></details>`, inboxPane);
+   <p class="note dtt">${esc(job.arts.map(a => a.title).join('、'))}</p>
+   <textarea id="ans" rows="10" placeholder="AI 的回答"></textarea>
+   <div class="row dans"><button class="go sub" id="copy">${job.copied ? '再複製給AI' : '複製給AI'}</button><button class="go" id="review">查看知識點</button></div>
+   <details><summary class="note">給 AI 的內容（${prompt.length} 字）</summary><textarea id="pr" rows="8" readonly></textarea></details>`, inboxPane);
   const pr = pbody.querySelector('#pr'), ans = pbody.querySelector('#ans'); pr.value = prompt; ans.value = job.answer || '';
   ans.oninput = () => { job.answer = ans.value; saveDrop(); };
   ans.addEventListener('paste', () => setTimeout(() => { job.answer = ans.value; saveDrop(); if (parseAnswer(ans.value, true)) go(); else if (/"(知識點|points)"\s*:/.test(ans.value)) toast('回答格式不完整，請 AI 再回一次。', 6000); }, 0));
   const copy = async () => {
     try { await navigator.clipboard.writeText(prompt); } catch (e) { pr.parentElement.open = true; pr.select(); document.execCommand('copy'); }
-    job.copied = true; saveDrop(); pbody.querySelector('#cst').textContent = '給 AI 的內容已複製 ✓'; pbody.querySelector('#copy').textContent = '再複製一次';
-    toast('已複製，去 AI 貼上');
+    job.copied = true; saveDrop(); pbody.querySelector('#copy').textContent = '再複製給AI';
+    toast('已複製');
   };
   pbody.querySelector('#copy').onclick = copy;
   const go = () => { const r = parseAnswer(ans.value); if (!r) return; job.r = r; step3(); };
@@ -531,11 +527,11 @@ function drawTxt(v) {
      ${ed ? `<div class="two"><input type="text" data-f="top" list="tops" value="${esc(p.top)}" placeholder="主題"><input type="text" data-f="sub" list="subs" value="${esc(p.sub)}" placeholder="子主題"></div>
        <textarea rows="3" data-f="desc" placeholder="說明（用自己的話）">${esc(p.desc)}</textarea><textarea rows="3" data-f="quote" placeholder="原文出處">${esc(p.quote)}</textarea>
        <div class="row"><button class="go done">完成</button><button class="go sub delp">刪掉這個點</button></div>`
-       : `<small>${esc(p.top)}／${esc(p.sub)}　・點一下編輯</small>${p.desc ? `<p>${esc(p.desc)}</p>` : ''}`}</div>`;
+       : `<small>${esc(p.top)}／${esc(p.sub)}</small>${p.desc ? `<p>${esc(p.desc)}</p>` : ''}`}</div>`;
   };
-  v.innerHTML = `${pts.length ? '' : `<p class="note">${a.json ? '這篇沒有知識點。' : '還沒有知識點：在下面的原文選一段字，按「把選的字變成知識點」；或按「＋ 自己加一個點」。'}</p>`}
+  v.innerHTML = `${pts.length || !a.json ? '' : '<p class="note">這篇沒有知識點。</p>'}
    <div class="pcs">${pts.map(card).join('')}</div>
-   <div class="row"><button class="go sub" id="addp">＋ 自己加一個點</button>${a.json ? '' : `<button class="go sub" id="full">${rv.full ? '收起原文' : '看原文（選字變成知識點）'}</button>`}</div>
+   <div class="row"><button class="go sub" id="addp">＋ 自己加一個點</button>${a.json ? '' : `<button class="go sub" id="full">${rv.full ? '收起原文' : '看原文'}</button>`}</div>
    ${rv.full && !a.json ? `<div class="src full">${mdHtml(a.text)}</div><button class="go mk" hidden>把選的字變成知識點</button>` : ''}`;
   const add = (t = '') => { const k = r.points.length, last = pts[pts.length - 1];
     r.points.push({ key: k, on: true, name: t.replace(/\s+/g, ' ').slice(0, 14), top: last ? last.top : '未分類', sub: last ? last.sub : '其他', desc: '', why: '', quote: t, art: rv.art, mine: true, color: HL[k % HL.length] });
@@ -563,7 +559,7 @@ function drawTxt(v) {
 }
 function drawRel(v) {
   const r = job.r, nm = x => { const p = r.points.find(q => q.name === x); if (p) return { name: p.name, off: !p.on }; const o = byId[x] || realPts().find(q => q.name === x); return o ? { name: o.name, old: true } : { name: x }; };
-  const lab = x => { const o = nm(x); return `<b class="${o.off ? 'off' : ''}">${esc(o.name)}</b>${o.old ? `<span class="old">已有${qtip('這個點是知識網裡本來就有的，不是這次新拆的。')}</span>` : ''}`; };
+  const lab = x => { const o = nm(x); return `<b class="${o.off ? 'off' : ''}">${esc(o.name)}</b>${o.old ? '<span class="old">已有</span>' : ''}`; };
   const card = ({ l, i }) => `<div class="rc${l.on ? '' : ' off'}" data-i="${i}">
     <div class="nh"><input type="checkbox" data-f="on"${l.on ? ' checked' : ''}>${lab(l.a)}</div>
     <div class="arr">──${typeSel(l.type, 'data-f="type"')}──▶</div>
@@ -624,8 +620,8 @@ async function newPoint(back) {
    <label>說明<textarea id="fd" rows="3"></textarea></label>
    <label>來源<select id="fo"><option value="">我自己</option>${srcs.map(s => `<option value="${esc(s.id)}">${esc(s.date + ' ' + s.title)}</option>`).join('')}</select></label>
    <label>原文出處<textarea id="fq" rows="2"></textarea></label>
-   <b>關聯</b><div id="frel"></div><button class="go sub" id="fadd">＋ 關聯</button></div>
-   <div class="row"><button class="go" id="fsave">保存</button></div>
+   <b>關聯</b><div id="frel"></div></div>
+   <div class="row fbtns"><button class="go sub" id="fadd">＋ 關聯</button><button class="go" id="fsave">保存</button></div>
    ${dl('tops', topNames())}<datalist id="subs"></datalist>${dl('allp', realPts().map(p => p.name))}`, back);
   const subs = () => pbody.querySelector('#subs').innerHTML = subNames(pbody.querySelector('#ft').value.trim()).map(n => `<option value="${esc(n)}">`).join('');
   pbody.querySelector('#ft').oninput = subs; subs();

@@ -145,6 +145,7 @@ function settingsPane(back) {
 }
 
 // ---------- 給其他功能用（整合判斷、問答）：照模式選 AI，失敗換下一個 ----------
+window.aiReady = () => S.mode === 'manual' ? !why(S.pick) : ready().length > 0;   // 有沒有可以用的 AI（問答沒金鑰時就不去叫 AI、不跳錯）
 window.aiAsk = async p => {
   const list = S.mode === 'manual' ? (why(S.pick) ? [] : [S.pick]) : ready().filter(c => c !== 'vertex' || estimate(p)[1] <= S.vertex.ask);
   if (!list.length) throw new Error('沒有可以用的 AI（按上方「AI」設定）');

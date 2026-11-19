@@ -139,10 +139,10 @@ html.kt body #toast{top:auto;bottom:56px;max-width:calc(100vw - 24px);text-align
 .lk input[type=color]{width:30px;height:22px;border:var(--k-bw) solid var(--k-bd);border-radius:5px;padding:0;background:none;cursor:pointer}
 .lk input[type=range]{flex:1;min-width:80px;max-width:170px}.lk .v{font-size:12px;opacity:.75;min-width:3.5em}
 .lk .pre{display:flex;gap:6px;flex-wrap:wrap}
-html[data-sync] .mpop [data-i="folder"]>span::after{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:7px;vertical-align:1px;border:1.5px solid #8888}
-html[data-sync=ok] .mpop [data-i="folder"]>span::after{background:#3fbf7f;border-color:#3fbf7f}
-html[data-sync=err] .mpop [data-i="folder"]>span::after,html[data-sync=err] .mb[data-hasf]::after{background:#e05a5a;border-color:#e05a5a}
-html[data-sync=run] .mpop [data-i="folder"]>span::after{border-color:#9B7BFF;border-top-color:transparent;animation:knspin 1s linear infinite}
+html[data-sync] .mpop [data-i="folder"]>span:not(.q)::after{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:7px;vertical-align:1px;border:1.5px solid #8888}
+html[data-sync=ok] .mpop [data-i="folder"]>span:not(.q)::after{background:#3fbf7f;border-color:#3fbf7f}
+html[data-sync=err] .mpop [data-i="folder"]>span:not(.q)::after,html[data-sync=err] .mb[data-hasf]::after{background:#e05a5a;border-color:#e05a5a}
+html[data-sync=run] .mpop [data-i="folder"]>span:not(.q)::after{border-color:#9B7BFF;border-top-color:transparent;animation:knspin 1s linear infinite}
 @keyframes knspin{to{transform:rotate(360deg)}}
 html[data-sync=err] .mb[data-hasf]{position:relative}html[data-sync=err] .mb[data-hasf]::after{content:'';position:absolute;right:-3px;top:-3px;width:8px;height:8px;border-radius:50%}`));
 
@@ -199,6 +199,20 @@ const row = (name, html, help) => `<div class="tr"><b>${name}${help ? qm(help) :
 const col = (attr, v) => `<input type="color" ${attr} value="${E(String(v).slice(0, 7))}">`;
 const rg = (attr, a, b, s, v, unit) => `<input type="range" ${attr} min="${a}" max="${b}" step="${s}" value="${v}"><span class="v">${unit(v)}</span>`;
 const pct = v => Math.round(v * 100) + '%';
+// 數字框（11/20）：直接打數字，或按 −／＋；打字時超出範圍先不套用，離開框才校正
+const nb = (attr, v, a, b, s, unit) => `<span class="nb"><button type="button" class="c" data-nbd="-1" tabindex="-1" aria-label="減少">−</button><input type="number" inputmode="decimal" ${attr} min="${a}" max="${b}" step="${s}" value="${v}"><i>${unit}</i><button type="button" class="c" data-nbd="1" tabindex="-1" aria-label="增加">＋</button></span>`;
+function bindNb(root, fn) {
+  root.querySelectorAll('.nb').forEach(w => {
+    const i = w.querySelector('input'), a = +i.min, b = +i.max, s = +i.step || 1;
+    const fire = (v, fin) => { if (!isFinite(v)) { if (fin) i.value = i.defaultValue; return; } const c = +Math.max(a, Math.min(b, v)).toFixed(3); if (fin) i.value = c; if (fin || c === v) { i.defaultValue = c; fn(i, c); } };
+    i.oninput = () => fire(parseFloat(i.value), false);
+    i.onchange = () => fire(parseFloat(i.value), true);
+    i.onkeydown = e => { if (e.key === 'Enter') i.blur(); };
+    w.querySelectorAll('[data-nbd]').forEach(x => x.onclick = () => fire(Math.round(((parseFloat(i.value) || 0) + s * +x.dataset.nbd) / s) * s, true));
+  });
+}
+document.head.append(h('style', {}, `.nb{display:inline-flex;align-items:center;gap:4px}.nb input{width:4.6em;text-align:center;padding:3px 4px!important}.nb i{font-style:normal;opacity:.7;font-size:12px}.nb .c{min-width:30px;padding:2px 8px;line-height:1.4}
+.nb input::-webkit-inner-spin-button,.nb input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}.nb input{-moz-appearance:textfield}`));
 function lookPane() {
   closePop(); const keepTop = !pane.hidden && document.getElementById('ptitle').textContent === '外觀' ? pbody.scrollTop : 0;
   const T = LOOK.t, u = U(), star = st.mode === 'star', ED = store.get('ed', {});
@@ -220,16 +234,16 @@ function lookPane() {
    <div class="sec">新點</div>
    ${row('新點', `點${col('data-t="newc"', T.newc)} 光圈${col('data-t="ring"', T.ring)}<label><input type="checkbox" id="lkring"${LOOK.ringOn ? ' checked' : ''}> 顯示光圈</label>`)}
    <div class="sec">說明</div>
-   ${row('字大小', rg('data-h="size"', 11, 16, 1, LOOK.help.size, v => v + ' px'))}
+   ${row('字大小', nb('data-h="size"', LOOK.help.size, 6, 40, 1, 'px'))}
    ${row('顏色', `字${col('data-h="fg"', LOOK.help.fg || u.tx)} 底${col('data-h="bg"', LOOK.help.bg || u.btn)}`)}
    ${row('底色透明度', rg('data-h="op"', 0, 100, 5, LOOK.help.op, v => v + '%'), '0 是完全透明，100 是不透明')}
    <div class="sec">框和字</div>
    ${row('框線粗細', rg('data-f="bw"', 0, 3, 1, LOOK.bw, v => +v ? v + ' px' : '不要'))}
    ${row('圓角', rg('data-f="r"', 0, 20, 1, LOOK.r, v => v + ' px'))}
    ${row('字體', `<select id="lkff">${[...FONTS, ...custom.map(k => [`"kn-${k}"`, k + '（匯入）'])].map(([v, t]) => `<option value='${E(v)}'${v === LOOK.ff ? ' selected' : ''}>${E(t)}</option>`).join('')}</select><label class="c" style="cursor:pointer;padding:3px 10px">匯入字體<input type="file" id="lkimp" accept=".ttf,.otf,.woff,.woff2" hidden></label>`, '介面和知識網的字體；可以匯入自己的字體檔（.ttf、.otf）')}
-   ${row('知識網字大小', rg('data-ed="fs"', .8, 2, .1, fs, pct))}
-   ${KN.fsz ? KN.fsz.rows(row) : ''}
-   ${row('介面大小', rg('data-ed="ui"', .8, 1.4, .05, zm, pct), '面板、卡片、按鈕整體放大縮小')}
+   ${row('知識網字大小', nb('data-ed="fs"', Math.round(fs * 100), 30, 400, 5, '%'))}
+   ${KN.fsz ? KN.fsz.rows(row, nb) : ''}
+   ${row('介面大小', nb('data-ed="ui"', Math.round(zm * 100), 50, 200, 5, '%'), '面板、卡片、按鈕整體放大縮小')}
    <div class="sec">介面</div>
    ${row('深／淺', `<button class="c${LOOK.ui !== 'light' ? ' on' : ''}" data-ui="dark">深</button><button class="c${LOOK.ui === 'light' ? ' on' : ''}" data-ui="light">淺</button>`, '選單、面板、卡片用深色還是淺色（和知識網底色分開）')}
   </div>`);
@@ -245,9 +259,13 @@ function lookPane() {
   P.querySelectorAll('[data-tcol]').forEach(x => x.oninput = () => { const T2 = TP.find(t => t.id === x.dataset.tcol); if (T2) { T2.col = x.value; st.tcol[T2.id] = x.value; save(); dirty = true; } });
   P.querySelectorAll('[data-age],[data-fade]').forEach(x => x.oninput = () => { const k = x.dataset.age != null ? 'age' : 'fade'; st[k][+x.dataset[k]] = x.value; save(); dirty = true; });
   P.querySelector('#lkring').onchange = e => { LOOK.ringOn = e.target.checked; saveLook(); };
-  P.querySelectorAll('[data-h]').forEach(x => x.oninput = () => { const k = x.dataset.h; LOOK.help[k] = x.type === 'range' ? +x.value : x.value; if (x.type === 'range') x.nextElementSibling.textContent = k === 'size' ? x.value + ' px' : x.value + '%'; saveLook(); });
+  P.querySelectorAll('[data-h]:not([type=number])').forEach(x => x.oninput = () => { const k = x.dataset.h; LOOK.help[k] = x.type === 'range' ? +x.value : x.value; if (x.type === 'range') x.nextElementSibling.textContent = x.value + '%'; saveLook(); });
   P.querySelectorAll('[data-f]').forEach(x => x.oninput = () => { const k = x.dataset.f; LOOK[k] = +x.value; x.nextElementSibling.textContent = k === 'bw' ? (+x.value ? x.value + ' px' : '不要') : x.value + ' px'; saveLook(); setTop(); });
-  P.querySelectorAll('[data-ed]').forEach(x => x.oninput = () => { x.nextElementSibling.textContent = pct(x.value); if (window.knSetED) knSetED(x.dataset.ed, +x.value); setTop(); });
+  bindNb(P, (x, v) => {
+    if (x.dataset.h) { LOOK.help.size = v; saveLook(); }
+    else if (x.dataset.ed) { if (window.knSetED) knSetED(x.dataset.ed, v / 100); setTop(); }
+    else if (x.dataset.fz && KN.fsz) KN.fsz.set(x.dataset.fz, v / 100);
+  });
   if (KN.fsz) KN.fsz.bind(P);
   P.querySelectorAll('[data-ui]').forEach(x => x.onclick = () => { LOOK.ui = x.dataset.ui; saveLook(); lookPane(); });
   P.querySelector('#lkff').onchange = e => { LOOK.ff = e.target.value; saveLook(); };
@@ -337,7 +355,7 @@ if (st.demo) { st.demo = false; save(); build(); ui(); enterMode(); }
 const _ui = ui; ui = function () { _ui(); applyLook(); };
 applyLook();
 // 給 layout.js（按鈕排列）、ui-sync.js（介面設定同步）用
-KN.menu = { ITEMS, E, qm, openPop, closePop, setTop, applyLook, lookPane, bar, setNameOf: f => nameOf = f, get pop() { return pop; },
+KN.menu = { ITEMS, E, qm, nb, bindNb, openPop, closePop, setTop, applyLook, lookPane, bar, setNameOf: f => nameOf = f, get pop() { return pop; },
   reloadLook() { Object.assign(LOOK, store.get('look3', {})); applyLook(); if (!pane.hidden && document.getElementById('ptitle').textContent === '外觀') lookPane(); },
   reloadWin() { Object.keys(POS).forEach(k => delete POS[k]); Object.assign(POS, store.get('winpos', {})); applyPos(pane); applyPos(cardEl); } };
 })();
