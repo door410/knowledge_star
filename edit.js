@@ -232,7 +232,7 @@ function catHtml(c) {
     `<div class="tr"><input type="text" id="tnew" placeholder="新的關聯類型" style="flex:1;min-width:0"><button class="c" id="tadd">加</button></div></div>`;
   if (c === 'card') return row('分頁', ck('card.tabs.desc', ED.card.tabs.desc, '說明') + ck('card.tabs.src', ED.card.tabs.src, '來源') + ck('card.tabs.rel', ED.card.tabs.rel, '關聯') + ck('card.tabs.mine', ED.card.tabs.mine, '我的想法')) +
     row('先打開', sel('card.first', ED.card.first, [['desc', '說明'], ['src', '來源'], ['rel', '關聯'], ['mine', '我的想法']]), '點知識點時，卡片先打開哪一頁。') +
-    row('說明分頁', ck('card.why', ED.card.why, '為什麼拆成這個點'), '「說明」分頁裡要不要顯示這段。');
+    row('說明分頁', ck('card.why', ED.card.why, '為什麼拆成這個點') + ck('card.meta', ED.card.meta, '幾份來源提到'), '「說明」分頁裡要不要顯示這兩段。');
   if (c === 'keys') return row('編輯版面', '<button class="c" id="emenu">開始</button>', '直接在畫面上拖曳按鈕、改名、收起來，排手機底部列。') +
     Object.keys(KEYS).map(a => row(KEYS[a], `<button class="c" data-key="${a}">${capture === a ? '按一個鍵…' : keyName(ED.keys[a] || '')}</button>`)).join('') +
     '<p class="note">快捷鍵：按右邊的鈕，再按想用的鍵；Backspace 清除。</p>';

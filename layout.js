@@ -561,7 +561,7 @@ new MutationObserver(() => scaleSheets()).observe(document.head, { childList: tr
 const saveFsz = () => { store.set('fsz', FSZ); applyFsz(); };
 KN.fsz = {
   // 直接打數字（30%～300%），或按 −／＋
-  rows: (row, nb) => row('介面字大小', nb('data-fz="all"', Math.round(FSZ.all * 100), 30, 300, 5, '%'), '只放大縮小介面上的字（選單、面板、卡片），按鈕和框的大小不變；「介面大小」是整個一起縮放') +
+  rows: (row, nb) => row('介面字大小', nb('data-fz="all"', Math.round(FSZ.all * 100), 30, 300, 5, '%'), '') +
     Object.keys(AREAS).map(k => row('　' + AREAS[k][0], nb(`data-fz="${k}"`, Math.round(FSZ[k] * 100), 30, 300, 5, '%'))).join('') +
     row('', '<button class="c" id="fzdef">字大小恢復預設</button>'),
   set(k, v) { if (!(k in FSZ)) return; FSZ[k] = v; saveFsz(); },

@@ -125,6 +125,8 @@ const isSide = k => (store.get('psize', {})[k] || (BIG.includes(k) ? 'big' : 'si
 const SIDE = { includes: title => isSide(kindOf(title, '')) };   // 給舊的程式用（卡片要不要一起關）
 function openPane(title, html, back) { const k = kindOf(title, html); pane.dataset.k = k; pane.classList.toggle('side', isSide(k) && !(PHONE() && BIG.includes(k))); pane.back = back || null; pane.querySelector('#pback').hidden = !back; pbody.className = ''; { const pt = pane.querySelector('#ptitle'), show = window.KN && KN.paneTitle ? KN.paneTitle(title) : title; pt.textContent = title; if (show !== title) pt.dataset.show = show; else delete pt.dataset.show; } pbody.innerHTML = html; pbody.scrollTop = 0; pane.hidden = false; paneOpen = true; if (!isSide(k)) card.hidden = true; }   // 小框開著時卡片可以一起留著（會自動排在旁邊）
 function closePane() { pane.hidden = true; paneOpen = false; pane.back = null; pbody.classList.remove('rvmode'); }
+// 功能頁打開時黑框先收起，關掉時（畫面沒動）放回（知識網.html parkTip／unparkTip）
+new MutationObserver(() => { const f = pane.hidden ? window.unparkTip : window.parkTip; if (f) f(); }).observe(pane, { attributes: true, attributeFilter: ['hidden'] });
 const folderBtn = document.getElementById('folderBtn');
 function setFolderBtn() { folderBtn.textContent = APP ? '同步與備份' : root ? '資料夾：' + root.name : '連上資料夾'; folderBtn.classList.toggle('on', !!root); }
 
@@ -613,7 +615,8 @@ async function saveJob() {
       const a = job.arts[ai];
       const dn = await uniqueName(kd, safe(date + ' ' + a.title), '', 'dir'), dh = await kd.getDirectoryHandle(dn, { create: true });
       await writeFile(dh, '原文.md', fm({ 標題: a.title, 日期: date, 類型: a.json ? 'AI 回答' : a.inbox ? '收件匣' : '貼上文字', 私人: a.priv }) + a.text.trim() + '\n');
-      for (const p of pts.filter(p => (p.art || 0) === ai)) await writeFile(dh, await uniqueName(dh, safe(p.name), '.md'), pointMd({ ...p, name: p.name.trim(), by: p.mine ? '自己新增' : '手動模式（貼給 AI）', created: date, priv: a.priv }));
+      for (const p of pts.filter(p => (p.art || 0) === ai)) await writeFile(dh, await uniqueName(dh, safe(p.name), '.md'), pointMd({ ...p, name: p.name.trim(), by: p.mine ? '自己新增' : PLAIN ? undefined : '手動模式（貼給 AI）',   // 無 AI 版不記拆點方式
+ created: date, priv: a.priv }));
       if (a.inbox) { try { const ib = await root.getDirectoryHandle('00-收件匣'); await ib.removeEntry(a.inbox); } catch (e) {} }
     }
     toast(pts.length ? `已放進知識網：${pts.length} 個知識點` : '已存好原文（私人）', 5000);

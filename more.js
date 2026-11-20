@@ -10,7 +10,7 @@ const srcDate = p => (K.sources.find(s => s.id === (p._path || '').split('/')[0]
 const pj = t => X().pj(t);
 const ptitle = document.getElementById('ptitle');
 function goPoint(id) { const q = byId[id]; if (!q) return; view.sel = q; tip.style.display = 'none'; flyPoint(q); openCard(q); }
-document.head.append(h('style', {}, `#tourBar,#tmBar{position:fixed;left:50%;transform:translateX(-50%);bottom:64px;z-index:25;background:var(--panel,#111316);color:inherit;border:1px solid #8886;border-radius:12px;padding:8px 12px;display:flex;gap:8px;align-items:center;max-width:calc(100vw - 24px);flex-wrap:wrap;font-size:14px}
+document.head.append(h('style', {}, `#tourBar,#tmBar{position:fixed;left:50%;transform:translateX(-50%);bottom:64px;z-index:19;background:var(--panel,#111316);color:inherit;border:1px solid #8886;border-radius:12px;padding:8px 12px;display:flex;gap:8px;align-items:center;max-width:calc(100vw - 24px);flex-wrap:wrap;font-size:14px}
 #tmBar{top:56px;bottom:auto}#selBox{position:fixed;border:1px dashed #9B7BFF;background:#9B7BFF22;z-index:15;pointer-events:none}.gbar rect{fill:#9B7BFF}.gbar text{fill:currentColor;font-size:11px}
 .rvtabs{display:flex;gap:4px;margin-bottom:8px}`));
 
@@ -65,7 +65,7 @@ function tourList() {
 }
 async function tourStart(tid) {
   const all = KN.realPts().filter(p => topOf(p) === tid), pub = all.filter(p => !p.priv);
-  openPane('導覽：' + tid, '<p class="note">準備門口牌子…</p>');
+  openPane('導覽：' + tid, window.KN_PLAIN ? '' : '<p class="note">準備門口牌子…</p>');
   const D = KN.root ? await tourData() : {}; let d = D[tid];
   if (!d || d.n !== all.length) {
     d = { n: all.length, sign: '', order: pub.map(p => p.id), gap: '' };

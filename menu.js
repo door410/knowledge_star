@@ -31,7 +31,8 @@ const ITEMS = {
   mode: ['切換星空／簡約', '', () => { const b = document.querySelector('#gMode .c:not(.on)'); if (b) b.click(); applyLook(); }],
   more: ['全部功能', '列出所有功能（包括收起來的）', () => KN.layout && KN.layout.more()] };
 if (window.knTopics) ITEMS.topics = ['主題整理', '主題、子主題改名、搬到別的主題底下、合併', () => knTopics()];
-if (window.KN_PLAIN) { delete ITEMS.lasso; delete ITEMS.ai; ITEMS.ed[1] = '知識網顯示什麼、卡片顯示什麼、快捷鍵、拆點指示'; ITEMS.tour[1] = '選一個主題，一站一站帶你看'; }
+Object.values(ITEMS).forEach(v => v[1] = '');   // 選單項目不放說明字（11/20）
+if (window.KN_PLAIN) { delete ITEMS.lasso; delete ITEMS.ai; }
 let nameOf = id => ITEMS[id][0];   // layout.js 會換成「改過的名字」
 
 // ---------- 配色 ----------
@@ -88,7 +89,7 @@ html.kt body #pane.side{left:auto;right:12px;bottom:12px;width:min(400px,calc(10
 @media(max-width:600px){html.kt body #pane.side{left:8px;right:8px;width:auto;top:auto;height:62vh;bottom:8px}}
 html.kt body #card{background:var(--k-ui);color:var(--k-tx);border:var(--k-bw) solid var(--k-bd);border-radius:var(--k-r);top:var(--ktop,56px)}
 html.kt body #zoom{color:var(--k-onnet)}
-#tip{z-index:25}
+#tip{z-index:13}   /* 在卡片（14）和功能頁（20）下面 */
 html.kdrag-move,html.kdrag-move *{cursor:move!important}html.kdrag-size,html.kdrag-size *{cursor:nwse-resize!important}   /* 拖的時候滑鼠樣子不亂跳 */
 #pane header{gap:4px}
 #pane .psz{width:28px;height:28px;border:0;background:none;color:inherit;opacity:.6;border-radius:7px;cursor:pointer;display:grid;place-items:center;padding:0}
@@ -236,16 +237,16 @@ function lookPane() {
    <div class="sec">說明</div>
    ${row('字大小', nb('data-h="size"', LOOK.help.size, 6, 40, 1, 'px'))}
    ${row('顏色', `字${col('data-h="fg"', LOOK.help.fg || u.tx)} 底${col('data-h="bg"', LOOK.help.bg || u.btn)}`)}
-   ${row('底色透明度', rg('data-h="op"', 0, 100, 5, LOOK.help.op, v => v + '%'), '0 是完全透明，100 是不透明')}
+   ${row('底色透明度', rg('data-h="op"', 0, 100, 5, LOOK.help.op, v => v + '%'), '')}
    <div class="sec">框和字</div>
    ${row('框線粗細', rg('data-f="bw"', 0, 3, 1, LOOK.bw, v => +v ? v + ' px' : '不要'))}
    ${row('圓角', rg('data-f="r"', 0, 20, 1, LOOK.r, v => v + ' px'))}
-   ${row('字體', `<select id="lkff">${[...FONTS, ...custom.map(k => [`"kn-${k}"`, k + '（匯入）'])].map(([v, t]) => `<option value='${E(v)}'${v === LOOK.ff ? ' selected' : ''}>${E(t)}</option>`).join('')}</select><label class="c" style="cursor:pointer;padding:3px 10px">匯入字體<input type="file" id="lkimp" accept=".ttf,.otf,.woff,.woff2" hidden></label>`, '介面和知識網的字體；可以匯入自己的字體檔（.ttf、.otf）')}
+   ${row('字體', `<select id="lkff">${[...FONTS, ...custom.map(k => [`"kn-${k}"`, k + '（匯入）'])].map(([v, t]) => `<option value='${E(v)}'${v === LOOK.ff ? ' selected' : ''}>${E(t)}</option>`).join('')}</select><label class="c" style="cursor:pointer;padding:3px 10px">匯入字體<input type="file" id="lkimp" accept=".ttf,.otf,.woff,.woff2" hidden></label>`, '')}
    ${row('知識網字大小', nb('data-ed="fs"', Math.round(fs * 100), 30, 400, 5, '%'))}
    ${KN.fsz ? KN.fsz.rows(row, nb) : ''}
-   ${row('介面大小', nb('data-ed="ui"', Math.round(zm * 100), 50, 200, 5, '%'), '面板、卡片、按鈕整體放大縮小')}
+   ${row('介面大小', nb('data-ed="ui"', Math.round(zm * 100), 50, 200, 5, '%'), '')}
    <div class="sec">介面</div>
-   ${row('深／淺', `<button class="c${LOOK.ui !== 'light' ? ' on' : ''}" data-ui="dark">深</button><button class="c${LOOK.ui === 'light' ? ' on' : ''}" data-ui="light">淺</button>`, '選單、面板、卡片用深色還是淺色（和知識網底色分開）')}
+   ${row('深／淺', `<button class="c${LOOK.ui !== 'light' ? ' on' : ''}" data-ui="dark">深</button><button class="c${LOOK.ui === 'light' ? ' on' : ''}" data-ui="light">淺</button>`, '')}
   </div>`);
   const P = pbody; P.scrollTop = keepTop;   // 改設定重畫時，停在原本捲到的地方
   const custom1 = () => { if (LOOK.name !== '我的') { LOOK.name = '（已微調）'; P.querySelectorAll('[data-pre]').forEach(b => b.classList.remove('on')); } };
@@ -279,8 +280,7 @@ async function brandSec(P) {
   const b = await knNative.brand.get();
   P.insertAdjacentHTML('beforeend', `<div class="lk"><div class="sec">電腦版的名稱和圖示</div>
    <div class="tr"><b>名稱</b><input type="text" id="brn" value="${E(b.name)}" style="flex:1;min-width:8em"><button class="c" id="brok">改名</button></div>
-   <div class="tr"><b>圖示</b>${b.icon ? `<img src="${b.icon}" width="32" height="32" style="border-radius:6px">` : '<span class="note">預設</span>'}<label class="c" style="cursor:pointer">選一張圖片<input type="file" id="bri" accept="image/png,image/jpeg,image/webp" hidden></label><button class="c" id="brdef">恢復預設</button></div>
-   <p class="note">改了之後，視窗、工作列、桌面和開始功能表的捷徑都會換成新的名稱和圖示。圖片建議正方形。</p></div>`);
+   <div class="tr"><b>圖示</b>${b.icon ? `<img src="${b.icon}" width="32" height="32" style="border-radius:6px">` : '<span class="note">預設</span>'}<label class="c" style="cursor:pointer">選一張圖片<input type="file" id="bri" accept="image/png,image/jpeg,image/webp" hidden></label><button class="c" id="brdef">恢復預設</button></div></div>`);
   const done = async (name, icon, reset) => { try { await knNative.brand.set(name, icon, reset); toast('改好了'); lookPane(); } catch (e) { toast('沒改成：' + e.message, 6000); } };
   P.querySelector('#brok').onclick = () => { const n = P.querySelector('#brn').value.trim(); if (!n) return toast('請填名稱'); done(n); };
   P.querySelector('#bri').onchange = async e => { const f = e.target.files[0]; if (f) done(null, new Uint8Array(await f.arrayBuffer())); };

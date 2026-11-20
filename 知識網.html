@@ -292,10 +292,14 @@ cv.addEventListener('pointermove',e=>{
 const endDrag=()=>{dragS=null;dragN=null;simT=0};
 cv.addEventListener('pointercancel',e=>{ptr.delete(e.pointerId);endDrag()});
 const tip=document.getElementById('tip');
-function showTip(text,x,y,p){tip.innerHTML=esc(text)+(p?'<button>看卡片 ›</button>':'');tip.style.display='block';tip.style.left=Math.min(x+12,W-250)+'px';tip.style.top=Math.min(y+12,H-40)+'px';if(p)tip.querySelector('button').onclick=()=>{tip.style.display='none';openCard(p)}}
-// 黑框（點名稱）只在畫布上：點到畫布以外的地方或按 Esc 就收起來，不會卡在最上層
-document.addEventListener('pointerdown',e=>{if(e.target!==cv&&!tip.contains(e.target))tip.style.display='none'},true);
-addEventListener('keydown',e=>{if(e.key==='Escape')tip.style.display='none'});
+function showTip(text,x,y,p){tipPark=null;tip.innerHTML=esc(text)+(p?'<button>看卡片 ›</button>':'');tip.style.display='block';tip.style.left=Math.min(x+12,W-250)+'px';tip.style.top=Math.min(y+12,H-40)+'px';if(p)tip.querySelector('button').onclick=()=>{tip.style.display='none';openCard(p)}}
+// 黑框（點名稱）：在功能頁和卡片下層。點畫布以外的地方或打開功能頁就先收起；
+// 功能頁關掉時，畫面沒移動也沒縮放才放回原位，動過就不放（免得飄在錯的地方）
+let tipPark=null;
+function parkTip(){if(tip.style.display==='block'){tip.style.display='none';tipPark={cx:view.cx,cy:view.cy,z:view.z}}}
+function unparkTip(){const q=tipPark;tipPark=null;if(q&&Math.abs(q.cx-view.cx)<1e-6&&Math.abs(q.cy-view.cy)<1e-6&&q.z===view.z)tip.style.display='block'}
+document.addEventListener('pointerdown',e=>{if(e.target===cv)tipPark=null;else if(!tip.contains(e.target))parkTip()},true);
+addEventListener('keydown',e=>{if(e.key==='Escape'){tip.style.display='none';tipPark=null}});
 cv.addEventListener('pointerup',e=>{ptr.delete(e.pointerId);const wasDrag=dragging;endDrag();dragging=false;if(wasDrag||moved>6)return;
  const best=downHit;
  if(best&&best.hub){view.sel=null;dirty=true;tip.style.display='none';best.subs?flyTopic(best):flySub(best);return}
@@ -310,7 +314,7 @@ function openCard(p,tab='desc'){curP=p;curTab=tab;card.hidden=false;const T=TP[p
  document.getElementById('cpath').textContent=T.name+' › '+(T.subs[p.sub].name||'');document.getElementById('cname').textContent=p.name;
  document.querySelectorAll('#ctabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab));
  const B=document.getElementById('cbody');
- if(tab==='desc')B.innerHTML=`<p>${esc(p.desc)}</p><h4>為什麼拆成這個點</h4><p>${esc(p.why)}</p>`;
+ if(tab==='desc')B.innerHTML=`<p>${esc(p.desc)}</p><h4>為什麼拆成這個點</h4><p>${esc(p.why)}</p><p class="meta">被 ${p.n} 份來源提到</p>`;
  if(tab==='src')B.innerHTML=p.src.map(id=>{const s=K.sources.find(x=>x.id===id);return`<h4>${esc(s.date)}</h4><p><b>${esc(s.title)}</b></p><blockquote>${esc(p.quote)}</blockquote>`}).join('')+'<p class="meta">下一版會把原文和知識點並排、同色對照。</p>';
  if(tab==='rel'){const r=adj[p.id]||[];B.innerHTML=r.length?r.map(x=>`<button class="rl" data-id="${esc(x.p.id)}">${esc(x.p.name)}<small>${x.x?'跨主題・':''}${esc(x.note)}</small></button>`).join(''):'<p>還沒有關聯。</p>';
   B.querySelectorAll('.rl').forEach(b=>b.onclick=()=>{const q=byId[b.dataset.id];view.sel=q;tip.style.display='none';flyPoint(q);openCard(q)})}
