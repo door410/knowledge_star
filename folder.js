@@ -379,40 +379,53 @@ function startJob(arts, how) {
   job = { queue: batches(arts), bi: 0, how }; job.total = job.queue.length; nextBatch(); }
 function nextBatch() { job.arts = job.queue[job.bi]; job.answer = ''; step2(); }
 
-function buildPrompt() {
-  const real = realPts().filter(p => !p.priv);
-  const tops = K.topics.filter(t => !t.parent).map(t => `- ${t.name}：${K.topics.filter(s => s.parent === t.id).map(s => s.name).join('、')}`).join('\n') || '（還沒有）';
-  const tn = {}; K.topics.forEach(t => tn[t.id] = t);
-  const list = real.slice(-400).map(p => { const s = tn[p.topic]; return `- ${p.id}｜${p.name}｜${s ? (tn[s.parent] || s).name + '/' + s.name : ''}`; }).join('\n') || '（還沒有）';
-  const many = job.arts.length > 1;
-  return `請幫我把下面的${many ? ' ' + job.arts.length + ' 篇' : ''}「原文」拆成知識點。只輸出一個 JSON，放在 \`\`\`json 區塊裡，不要其他說明。
+// 複製給 AI 的提示詞：可以在「編輯台 › AI 拆點」改成自己的版本（{…} 會換成實際內容，刪掉就不放）
+const PROMPT_DEF = `請幫我把下面的「原文」拆成知識點。只輸出一個 JSON，放在 \`\`\`json 區塊裡，不要其他說明。
 
 規則：
 1. 一個知識點＝一個可以單獨看懂的重點，名稱 4～12 個字。
-2. 每個知識點附：說明（1～2 句白話）、理由（為什麼值得拆成一個點，一句）、原文（從原文「逐字複製」最能代表它的一段，不可以改寫）${many ? '、文章（它來自第幾篇，填數字）' : ''}。
+2. 每個知識點附：說明（1～2 句白話）、理由（為什麼值得拆成一個點，一句）、原文（從原文「逐字複製」最能代表它的一段，不可以改寫）。有好幾篇時，另附文章（它來自第幾篇，填數字）。
 3. 主題、子主題：優先用「現有主題」裡的名稱；都不合適才取新的（主題 2～6 字，子主題 2～8 字）。
-4. 關聯：只有意思真的相關才連，每條附類型（從「${RTYPES.join('、')}」選一個）和一句白話說明。可以連這次的其他新知識點（寫名稱），也可以連「現有知識點」（寫 id）。名字一樣但意思不同的，不要連。
+4. 關聯：只有意思真的相關才連，每條附類型（從「{關聯類型}」選一個）和一句白話說明。可以連這次的其他新知識點（寫名稱），也可以連「相關的舊知識點」（寫 id）。名字一樣但意思不同的，不要連。
 5. 不要合併知識點，不要改寫原文。
-
+{補充指示}
 JSON 格式：
-{"知識點":[{"名稱":"","主題":"","子主題":"","說明":"","理由":"","原文":""${many ? ',"文章":1' : ''}}],
- "關聯":[{"甲":"新知識點名稱","乙":"新知識點名稱或現有知識點 id","類型":"有關","說明":""}]}
+{JSON格式}
 
 現有主題（主題：子主題）：
-${tops}
+{現有主題}
 
-現有知識點（id｜名稱｜主題/子主題）：
-${list}
+相關的舊知識點（id｜名稱｜主題/子主題）：
+{相關舊知識點}
 
-${job.arts.map((a, i) => `${many ? `【第 ${i + 1} 篇】` : ''}原文標題：${a.title}
-原文：
-<<<
-${a.text.trim()}
->>>`).join('\n\n')}`;
+{原文}`;
+const RELN = 30;   // 舊知識點只放和這次原文最相關的 30 個，知識再多提示詞也不會變長
+function relatedOld(real, text) {
+  const tn = {}; K.topics.forEach(t => tn[t.id] = t);
+  const line = p => { const s = tn[p.topic]; return `- ${p.id}｜${p.name}｜${s ? (tn[s.parent] || s).name + '/' + s.name : ''}`; };
+  let got = [];
+  try { const B = window.KN2 && KN2.bm25; if (B) got = B(real.map(p => ({ p, text: p.name + ' ' + (p.desc || '') })))(text).slice(0, RELN).map(x => x.p); } catch (e) { console.warn(e); }
+  return got.map(line).join('\n') || '（沒有相關的）';
+}
+function buildPrompt() {
+  const real = realPts().filter(p => !p.priv), many = job.arts.length > 1;
+  const tops = K.topics.filter(t => !t.parent).map(t => `- ${t.name}：${K.topics.filter(s => s.parent === t.id).map(s => s.name).join('、')}`).join('\n') || '（還沒有）';
+  const add = window.knPromptAdd ? knPromptAdd() : '';
+  const V = {
+    關聯類型: RTYPES.join('、'),
+    補充指示: add ? `6. 另外要求：${add}\n` : '',
+    JSON格式: `{"知識點":[{"名稱":"","主題":"","子主題":"","說明":"","理由":"","原文":""${many ? ',"文章":1' : ''}}],\n "關聯":[{"甲":"新知識點名稱","乙":"新知識點名稱或舊知識點 id","類型":"有關","說明":""}]}`,
+    現有主題: tops,
+    相關舊知識點: real.length ? relatedOld(real, job.arts.map(a => a.title + '\n' + a.text).join('\n')) : '（還沒有）',
+    原文: job.arts.map((a, i) => `${many ? `【第 ${i + 1} 篇】` : ''}原文標題：${a.title}\n原文：\n<<<\n${a.text.trim()}\n>>>`).join('\n\n')
+  };
+  let t = (window.knPromptTpl && knPromptTpl()) || PROMPT_DEF;
+  if (!t.includes('{原文}')) t += '\n\n{原文}';   // 原文一定要給
+  return t.replace(/\{(關聯類型|補充指示|JSON格式|現有主題|相關舊知識點|原文)\}/g, (m, k) => V[k]).replace(/\n{3,}/g, '\n\n');
 }
 function step2() {
   stage = 'ans'; saveDrop();
-  const prompt = window.knPromptExtra ? knPromptExtra(buildPrompt()) : buildPrompt();
+  const prompt = buildPrompt();
   openPane('貼回 AI 的回答' + (job.total > 1 ? `（第 ${job.bi + 1}／${job.total} 次）` : ''), `
    <p class="note dtt">${esc(job.arts.map(a => a.title).join('、'))}</p>
    <textarea id="ans" rows="10" placeholder="AI 的回答"></textarea>
@@ -431,7 +444,7 @@ function step2() {
   pbody.querySelector('#review').onclick = go;
   if (job.how === 'copy') { job.how = null; copy(); }
 }
-window.KN = { get paneOpen() { return paneOpen; }, h, toast, qtip, openPane, closePane, pbody, pane, step2, load, writeFile, realPts, mdHtml, markQuote, RTYPES, buildPrompt, parseAnswer, step3, get job() { return job; }, get HL() { return HL; }, get root() { return root; } }; // 給 ai.js、layer2.js 用
+window.KN = { get paneOpen() { return paneOpen; }, h, toast, qtip, openPane, closePane, pbody, pane, step2, load, writeFile, realPts, mdHtml, markQuote, RTYPES, buildPrompt, PROMPT_DEF, parseAnswer, step3, get job() { return job; }, get HL() { return HL; }, get root() { return root; } }; // 給 ai.js、layer2.js 用
 function parseAnswer(t, quiet) {
   const say = quiet ? () => {} : toast;
   t = (t || '').trim(); if (!t) { say('還沒有貼上 AI 的回答'); return null; }

@@ -323,14 +323,14 @@ window.openCard = openCard = function (p, tab = 'desc') {
   if (tab !== 'mine') return;
   const B = document.getElementById('cbody');
   if (p.demo || !p._path || !KN.root) { B.innerHTML = '<p class="meta">示範點不能寫想法。</p>'; return; }
-  B.innerHTML = `<textarea class="mine" placeholder="寫下你的想法">${E(p.mine || '')}</textarea><div class="row"><button class="go" id="mok">存</button></div>`;
+  B.innerHTML = `<textarea class="mine" placeholder="寫下你的想法">${E(p.mine || '')}</textarea><div class="row"><button class="go" id="mok">保存</button></div>`;
   B.querySelector('#mok').onclick = async () => {
     const v = B.querySelector('textarea').value.trim(), [dn, fn] = p._path.split('/');
     const dh = await (await KN.root.getDirectoryHandle('02-知識')).getDirectoryHandle(dn);
     let t = (await (await (await dh.getFileHandle(fn)).getFile()).text()).replace(/\r\n/g, '\n').replace(/\n## 我的想法\n[\s\S]*?(?=\n## |$)/, '');
     if (v) { const sec = '\n## 我的想法\n' + v + '\n'; t = /\n## 關聯[ \t]*(?=\n|$)/.test(t) ? t.replace(/\n## 關聯[ \t]*(?=\n|$)/, sec + '\n## 關聯') : t.replace(/\s*$/, '\n') + sec; }
     await KN.writeFile(dh, fn, t);
-    const id = p.id; await KN.load(true); if (byId[id]) openCard(byId[id], 'mine'); toast('已存好想法');
+    const id = p.id; await KN.load(true); if (byId[id]) openCard(byId[id], 'mine'); toast('已保存想法');
   };
 };
 window.KN2 = { finder, bm25, quoteCheck, pts, pj, ensureVec, V, dot, srcOf };   // 給 eval.js 用

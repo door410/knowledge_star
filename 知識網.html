@@ -55,9 +55,9 @@ blockquote{margin:6px 0;padding:6px 10px;border-left:3px solid #E9C98A;backgroun
  <div class="g"><button class="c" id="linesBtn">線 ▾</button></div>
 </div>
 <div id="linePanel" hidden>
- <b class="m">平常顯示（放大到知識點時）</b>
- <label class="m"><input type="checkbox" data-g="norm" data-k="in"> 同主題的關聯</label>
- <label class="m"><input type="checkbox" data-g="norm" data-k="x"> 跨主題的關聯</label>
+ <b>平常顯示</b>
+ <label><input type="checkbox" data-g="norm" data-k="in"> 同主題的關聯</label>
+ <label><input type="checkbox" data-g="norm" data-k="x"> 跨主題的關聯</label>
  <b>點選知識點時顯示</b>
  <label class="m"><input type="checkbox" data-g="sel" data-k="s"> 結構線</label>
  <label><input type="checkbox" data-g="sel" data-k="in"> 同主題的關聯</label>
@@ -211,6 +211,9 @@ function drawStar(){const sel=view.sel,wc=FIT.star.wc;
  ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);ctx.drawImage(bgSpr(),0,0,W,H);
  const spread=Math.max(0,...TP.map(ttOf)),zb=1+(view.z-1)*.12,s2=base*zb,bx=W/2+(-BW/2-(view.cx-wc.x)*.25)*s2,by=H/2+(-BH/2-(view.cy-wc.y)*.25)*s2;
  // 星塵帶（會跟著移動的那條）11/13 拿掉，只留背景微星點
+ // 平常的關聯線（「線 ▾」或編輯台勾「平常顯示」才畫；11/20 起星空也有）
+ {const L=st.lines;if(L.norm.in||L.norm.x){const c0=`rgba(${rgbOf(st.starC)},.28)`;ctx.lineWidth=.8*KNX.lw;ctx.setLineDash(KNX.dash);ctx.globalAlpha=Math.min(1,KNX.la*(1-.6*dim));
+  S.forEach(p=>(adj[p.id]||[]).forEach(r=>{if(p.id>r.p.id||!(r.x?L.norm.x:L.norm.in))return;const[x1,y1]=toS(...pos(p)),[x2,y2]=toS(...pos(r.p));ctx.strokeStyle=KNX.lineCol?KNX.lineCol(r):c0;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke()}));ctx.setLineDash([]);ctx.globalAlpha=1}}
  if(sel){const[x0,y0]=toS(...pos(sel));ctx.strokeStyle=`rgba(${rgbOf(st.starC)},.6)`;ctx.lineWidth=KNX.lw;ctx.setLineDash(KNX.dash);relOf(sel).forEach(r=>{const[x,y]=toS(...pos(r.p));if(KNX.lineCol)ctx.strokeStyle=KNX.lineCol(r);ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x,y);ctx.stroke()});ctx.setLineDash([])}
  const k=Math.sqrt(view.z)*.75,hi=[];ctx.fillStyle=st.starC;
  for(const p of S){const[x,y]=toS(...pos(p));if(x<-40||y<-40||x>W+40||y>H+40)continue;
@@ -289,7 +292,10 @@ cv.addEventListener('pointermove',e=>{
 const endDrag=()=>{dragS=null;dragN=null;simT=0};
 cv.addEventListener('pointercancel',e=>{ptr.delete(e.pointerId);endDrag()});
 const tip=document.getElementById('tip');
-function showTip(text,x,y,p){tip.innerHTML=esc(text)+(p?'<button>看卡片 ›</button>':'');tip.style.display='block';tip.style.left=Math.min(x+12,W-250)+'px';tip.style.top=Math.min(y+12,H-40)+'px';if(p)tip.querySelector('button').onclick=()=>openCard(p)}
+function showTip(text,x,y,p){tip.innerHTML=esc(text)+(p?'<button>看卡片 ›</button>':'');tip.style.display='block';tip.style.left=Math.min(x+12,W-250)+'px';tip.style.top=Math.min(y+12,H-40)+'px';if(p)tip.querySelector('button').onclick=()=>{tip.style.display='none';openCard(p)}}
+// 黑框（點名稱）只在畫布上：點到畫布以外的地方或按 Esc 就收起來，不會卡在最上層
+document.addEventListener('pointerdown',e=>{if(e.target!==cv&&!tip.contains(e.target))tip.style.display='none'},true);
+addEventListener('keydown',e=>{if(e.key==='Escape')tip.style.display='none'});
 cv.addEventListener('pointerup',e=>{ptr.delete(e.pointerId);const wasDrag=dragging;endDrag();dragging=false;if(wasDrag||moved>6)return;
  const best=downHit;
  if(best&&best.hub){view.sel=null;dirty=true;tip.style.display='none';best.subs?flyTopic(best):flySub(best);return}
@@ -304,7 +310,7 @@ function openCard(p,tab='desc'){curP=p;curTab=tab;card.hidden=false;const T=TP[p
  document.getElementById('cpath').textContent=T.name+' › '+(T.subs[p.sub].name||'');document.getElementById('cname').textContent=p.name;
  document.querySelectorAll('#ctabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab));
  const B=document.getElementById('cbody');
- if(tab==='desc')B.innerHTML=`<p>${esc(p.desc)}</p><h4>為什麼拆成這個點</h4><p>${esc(p.why)}</p><p class="meta">被 ${p.n} 份來源提到・拆點：${esc(p.by||'Claude 代拆（第一版）')}</p>`;
+ if(tab==='desc')B.innerHTML=`<p>${esc(p.desc)}</p><h4>為什麼拆成這個點</h4><p>${esc(p.why)}</p>`;
  if(tab==='src')B.innerHTML=p.src.map(id=>{const s=K.sources.find(x=>x.id===id);return`<h4>${esc(s.date)}</h4><p><b>${esc(s.title)}</b></p><blockquote>${esc(p.quote)}</blockquote>`}).join('')+'<p class="meta">下一版會把原文和知識點並排、同色對照。</p>';
  if(tab==='rel'){const r=adj[p.id]||[];B.innerHTML=r.length?r.map(x=>`<button class="rl" data-id="${esc(x.p.id)}">${esc(x.p.name)}<small>${x.x?'跨主題・':''}${esc(x.note)}</small></button>`).join(''):'<p>還沒有關聯。</p>';
   B.querySelectorAll('.rl').forEach(b=>b.onclick=()=>{const q=byId[b.dataset.id];view.sel=q;tip.style.display='none';flyPoint(q);openCard(q)})}

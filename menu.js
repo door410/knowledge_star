@@ -223,7 +223,7 @@ function lookPane() {
   openPane('外觀', `<div class="lk">
    <div class="sec">配色${qm('先選一套，再到下面單項微調；調好可以存成「我的」。')}</div>
    <div class="tr pre">${names.map(n => `<button class="c${n === LOOK.name ? ' on' : ''}" data-pre="${E(n)}">${E(n)}</button>`).join('')}</div>
-   <div class="tr"><button class="c" id="lksave">存成「我的」配色</button></div>
+   <div class="tr"><button class="c" id="lksave">保存成「我的」配色</button></div>
    <div class="sec">單項顏色</div>
    ${Object.keys(UIC).map(k => row(UIC[k], col(`data-u="${k}"`, u[k]))).join('')}
    ${Object.keys(NETC).map(k => row(NETC[k][0], col(`data-t="${k}"`, T[k]), NETC[k][1] || '')).join('')}
@@ -250,7 +250,7 @@ function lookPane() {
   const P = pbody; P.scrollTop = keepTop;   // 改設定重畫時，停在原本捲到的地方
   const custom1 = () => { if (LOOK.name !== '我的') { LOOK.name = '（已微調）'; P.querySelectorAll('[data-pre]').forEach(b => b.classList.remove('on')); } };
   P.querySelectorAll('[data-pre]').forEach(b => b.onclick = () => { const n = b.dataset.pre, src = n === '我的' ? LOOK.mine : PRE[n]; LOOK.t = clone(src); LOOK.name = n; if (src.ui) LOOK.ui = src.ui; saveLook(); lookPane(); });
-  P.querySelector('#lksave').onclick = () => { LOOK.mine = clone(Object.assign(LOOK.t, { ui: LOOK.ui })); LOOK.name = '我的'; saveLook(); lookPane(); toast('已存成「我的」配色'); };
+  P.querySelector('#lksave').onclick = () => { LOOK.mine = clone(Object.assign(LOOK.t, { ui: LOOK.ui })); LOOK.name = '我的'; saveLook(); lookPane(); toast('已保存成「我的」配色'); };
   P.querySelectorAll('[data-u]').forEach(x => x.oninput = () => { U()[x.dataset.u] = x.value; custom1(); saveLook(); });
   P.querySelectorAll('[data-t]').forEach(x => x.oninput = () => { LOOK.t[x.dataset.t] = x.value; custom1(); saveLook(); });
   P.querySelectorAll('[data-mode]').forEach(x => x.onclick = () => { const b = document.querySelector(`#gMode [data-v="${x.dataset.mode}"]`); if (b) b.click(); applyLook(); lookPane(); });

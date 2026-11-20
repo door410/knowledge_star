@@ -12,7 +12,7 @@ const EDDEF = {
   filter: { tops: [], src: '', days: 0, priv: 'all', q: '' }, label: 'name',
   card: { tabs: { desc: true, src: true, rel: true, mine: true }, first: 'desc', why: true, meta: true },
   line: { w: 1, a: 1, dash: 'solid', byType: false }, types: [], tcol: {}, thide: {},
-  grain: 'mid', aiNote: '', open: 'home', ui: 1, fs: 1, dyn: 'mid',
+  grain: 'mid', aiNote: '', aiTpl: '', open: 'home', ui: 1, fs: 1, dyn: 'mid',
   keys: { home: 'h', add: 'a', new: 'n', qa: 'q', recent: 'r', ed: 'e', mode: 'm', pure: 'p', layout: 'l', close: 'escape' } };
 const ED = {};
 function setED(o) {
@@ -85,7 +85,7 @@ function editForm(p) {
    <div class="two"><label>主題<input type="text" id="et" value="${E(sub.parent || '')}"></label><label>子主題<input type="text" id="es" value="${E(sub.name || '')}"></label></div>
    <label>說明<textarea id="edd" rows="4">${E(p.desc)}</textarea></label><label>為什麼拆成這個點<textarea id="ew" rows="2">${E(p.why)}</textarea></label>
    <label><input type="checkbox" id="ep"${p.priv ? ' checked' : ''}> 私人</label></div>
-   <div class="row"><button class="go" id="eok">存</button><button class="go sub" id="eno">取消</button><button class="go sub" id="edel">刪除這個點</button></div>`;
+   <div class="row"><button class="go" id="eok">保存</button><button class="go sub" id="eno">取消</button><button class="go sub" id="edel">刪除這個點</button></div>`;
   const [dn, fn] = p._path.split('/'), dir = async () => (await KN.root.getDirectoryHandle('02-知識')).getDirectoryHandle(dn), g = id => B.querySelector(id).value.trim();
   B.querySelector('#eno').onclick = () => openCard(p, 'desc');
   B.querySelector('#eok').onclick = async () => {
@@ -101,7 +101,7 @@ function editForm(p) {
     if (/\n## 為什麼拆成這個點\n/.test(body)) body = body.replace(/(\n## 為什麼拆成這個點\n)[\s\S]*?(?=\n## |$)/, (x, a) => a + why + '\n');
     else if (why) body = body.replace(/\s*$/, '\n') + '\n## 為什麼拆成這個點\n' + why + '\n';
     await KN.writeFile(dh, fn, head + body);
-    const id = p.id; await KN.load(true); if (byId[id]) openCard(byId[id], 'desc'); toast('已存好');
+    const id = p.id; await KN.load(true); if (byId[id]) openCard(byId[id], 'desc'); toast('已保存');
   };
   const del = B.querySelector('#edel');
   del.onclick = async () => {
@@ -189,10 +189,8 @@ addEventListener('pagehide', () => _set('lastView', { mode: st.mode, z: view.z, 
   go(); })();
 
 // ---------- 給 AI 的拆點指示（folder.js step2 呼叫）----------
-window.knPromptExtra = p => {
-  const add = [{ coarse: '拆得粗一點：只拆最重要的大重點，數量少。', fine: '拆得細一點：小重點也拆出來，數量多。' }[ED.grain], ED.aiNote.trim()].filter(Boolean).join('\n');
-  return add ? p.replace('\n\nJSON 格式：', `\n6. 另外要求：${add}\n\nJSON 格式：`) : p;
-};
+window.knPromptAdd = () => [{ coarse: '拆得粗一點：只拆最重要的大重點，數量少。', fine: '拆得細一點：小重點也拆出來，數量多。' }[ED.grain], ED.aiNote.trim()].filter(Boolean).join('\n');
+window.knPromptTpl = () => ED.aiTpl || '';
 
 // ---------- 編輯台（11/7 改：依畫面哪一塊分類，左邊清單＋右邊內容；06 第 33 輪）----------
 const edBtn = h('button', { className: 'c', textContent: '編輯台' }); document.getElementById('fbar').append(edBtn); edBtn.onclick = () => edPane();
@@ -225,7 +223,7 @@ function catHtml(c) {
     row('篩選：關鍵字', `<input type="text" data-e="filter.q" value="${E(f.q)}" style="flex:1;min-width:0"><button class="c" id="fclr">清除篩選</button>`) +
     row('打開時先看', sel('open', ED.open, [['home', '全貌'], ['last', '上次看的位置'], ['qa', '問答'], ['recent', '最近消化'], ...tops.map(t => ['topic:' + t.id, '主題：' + t.name])])) +
     row('動態', sel('dyn', ED.dyn, [['weak', '弱'], ['mid', '中'], ['strong', '強']]), '拖曳、飛過去時的彈性和速度。');
-  if (c === 'line') return row('平常顯示', lk('norm', 'in', '同主題的關聯') + lk('norm', 'x', '跨主題的關聯'), '簡約模式放大到知識點時，平常就畫出來的線。') +
+  if (c === 'line') return row('平常顯示', lk('norm', 'in', '同主題的關聯') + lk('norm', 'x', '跨主題的關聯'), '平常就畫出來的線（壯麗星空一直顯示；簡約模式放大到知識點時顯示）。') +
     row('點選時顯示', lk('sel', 's', '結構線') + lk('sel', 'in', '同主題的關聯') + lk('sel', 'x', '跨主題的關聯'), '點一個知識點時，畫出哪些線。') +
     row('粗細', rng('line.w', ED.line.w, .5, 3, .1)) + row('濃淡', rng('line.a', ED.line.a, .3, 2, .1)) +
     row('樣式', sel('line.dash', ED.line.dash, [['solid', '實線'], ['dash', '虛線'], ['dot', '點線']]) + ck('line.byType', ED.line.byType, '依類型上色'), '勾「依類型上色」，線的顏色就照下面每種關聯的顏色。') +
@@ -234,14 +232,15 @@ function catHtml(c) {
     `<div class="tr"><input type="text" id="tnew" placeholder="新的關聯類型" style="flex:1;min-width:0"><button class="c" id="tadd">加</button></div></div>`;
   if (c === 'card') return row('分頁', ck('card.tabs.desc', ED.card.tabs.desc, '說明') + ck('card.tabs.src', ED.card.tabs.src, '來源') + ck('card.tabs.rel', ED.card.tabs.rel, '關聯') + ck('card.tabs.mine', ED.card.tabs.mine, '我的想法')) +
     row('先打開', sel('card.first', ED.card.first, [['desc', '說明'], ['src', '來源'], ['rel', '關聯'], ['mine', '我的想法']]), '點知識點時，卡片先打開哪一頁。') +
-    row('說明分頁', ck('card.why', ED.card.why, '為什麼拆成這個點') + ck('card.meta', ED.card.meta, '來源數和拆點方式'), '「說明」分頁裡要不要顯示這兩段。');
+    row('說明分頁', ck('card.why', ED.card.why, '為什麼拆成這個點'), '「說明」分頁裡要不要顯示這段。');
   if (c === 'keys') return row('編輯版面', '<button class="c" id="emenu">開始</button>', '直接在畫面上拖曳按鈕、改名、收起來，排手機底部列。') +
     Object.keys(KEYS).map(a => row(KEYS[a], `<button class="c" data-key="${a}">${capture === a ? '按一個鍵…' : keyName(ED.keys[a] || '')}</button>`)).join('') +
     '<p class="note">快捷鍵：按右邊的鈕，再按想用的鍵；Backspace 清除。</p>';
   if (c === 'ai') return row('拆點粗細', sel('grain', ED.grain, [['coarse', '粗（點少）'], ['mid', '中'], ['fine', '細（點多）']]), '交給 AI 拆的時候，要拆得多細。') +
-    row('給 AI 的補充指示', `<textarea data-e="aiNote" rows="3" placeholder="例如：例子也要拆成點">${E(ED.aiNote)}</textarea>`, '每次拆點都會附上這句。', true) + (window.KN_PLAIN ? '' :
+    row('給 AI 的補充指示', `<textarea data-e="aiNote" rows="3" placeholder="例如：例子也要拆成點">${E(ED.aiNote)}</textarea>`, '每次拆點都會附上這句。', true) +
+    row('複製給 AI 的提示詞', `<textarea id="etpl" rows="12">${E(ED.aiTpl || KN.PROMPT_DEF)}</textarea><div class="tr"><button class="c" id="etpls">保存</button><button class="c" id="etpld">恢復預設</button></div>`, '每次「複製給AI」都用這段。{原文}、{現有主題}、{相關舊知識點}、{關聯類型}、{補充指示}、{JSON格式} 會換成實際內容；不想放的就把它刪掉。', true) + (window.KN_PLAIN ? '' :
     row('AI 金鑰', '<button class="c" id="eai">打開 AI 設定</button>', 'Gemini、Groq 的金鑰（只存在這台電腦的瀏覽器）。'));
-  if (c === 'view') return row('存成檢視', `<input type="text" id="vname" placeholder="名稱" style="flex:1;min-width:0"><button class="c" id="vsave">存</button>`, '把現在的顯示、篩選、卡片、線的設定存起來，之後一鍵切換。') +
+  if (c === 'view') return row('保存成檢視', `<input type="text" id="vname" placeholder="名稱" style="flex:1;min-width:0"><button class="c" id="vsave">保存</button>`, '把現在的顯示、篩選、卡片、線的設定存起來，之後一鍵切換。') +
     views.map((v, i) => `<div class="tr"><span style="flex:1">${E(v.name)}</span><button class="c" data-va="${i}">套用</button><button class="c" data-vx="${i}">×</button></div>`).join('') +
     row('復原', '<button class="c" id="eun">↶ 復原</button><button class="c" id="ere">↷ 重做</button><button class="c" id="edef">恢復預設</button>', '設定改壞了可以退回。知識內容（刪掉、改掉的點）在「整理 ▾ › 紀錄與復原」。');
   return '';
@@ -259,10 +258,12 @@ function edPane() {
   pbody.classList.add('ed2'); const P = pbody; P.querySelector('.edp').scrollTop = keepScroll;
   P.querySelectorAll('[data-cat]').forEach(b => b.onclick = () => { edCat = b.dataset.cat; edPane(); });
   const on = (id, fn) => { const el = P.querySelector(id); if (el) el.onclick = fn; };
+  on('#etpls', () => { const v = P.querySelector('#etpl').value.trim(); ED.aiTpl = v && v !== KN.PROMPT_DEF.trim() ? v : ''; saveED(); toast('已保存提示詞'); });
+  on('#etpld', () => { ED.aiTpl = ''; saveED(); P.querySelector('#etpl').value = KN.PROMPT_DEF; toast('已恢復預設提示詞'); });
   on('#eun', () => { clearTimeout(tmr); pushUndo(); if (!UNDO.length) return toast('沒有可以復原的'); REDO.push(snap()); applyState(UNDO.pop()); });
   on('#ere', () => { if (!REDO.length) return toast('沒有可以重做的'); UNDO.push(snap()); applyState(REDO.pop()); });
   on('#edef', () => { pushUndo(); UNDO.push(snap()); REDO.length = 0; applyState(JSON.stringify({ st: clone(DEF), ed: clone(EDDEF) })); toast('已恢復預設（可以按「復原」回去）'); });
-  on('#vsave', () => { const views = store.get('views', []), n = P.querySelector('#vname').value.trim() || '檢視 ' + (views.length + 1); views.push({ name: n, st: clone(st), ed: clone(ED) }); _set('views', views); edPane(); toast('已存成檢視：' + n); });
+  on('#vsave', () => { const views = store.get('views', []), n = P.querySelector('#vname').value.trim() || '檢視 ' + (views.length + 1); views.push({ name: n, st: clone(st), ed: clone(ED) }); _set('views', views); edPane(); toast('已保存成檢視：' + n); });
   on('#emenu', () => window.knMenuEdit && knMenuEdit());
   on('#eai', () => { const b = document.querySelector('#aiBar button'); if (b) b.click(); });
   P.querySelectorAll('[data-va]').forEach(b => b.onclick = () => { const v = store.get('views', [])[+b.dataset.va]; pushUndo(); UNDO.push(snap()); REDO.length = 0; applyState(JSON.stringify({ st: v.st, ed: v.ed })); toast('已套用：' + v.name); });

@@ -177,10 +177,10 @@ async function tmPane() {
   if (!KN.root) { openPane('回顧', tabsRow('tm') + '<p class="kempty">還沒連上資料夾。</p>'); bindTabs(); return; }
   const d = await tmDir(), days = []; for await (const [n, fh] of d.entries()) if (n.endsWith('.json')) days.push(n.slice(0, -5));
   days.sort().reverse(); const pics = new Set(); for await (const n of d.keys()) if (n.endsWith('.png')) pics.add(n.slice(0, -4));
-  openPane('回顧', tabsRow('tm') + `<div class="row"><input type="text" id="tmname" placeholder="名稱（可不填）" style="flex:1;min-width:0"><button class="go" id="tmsave">現在存一張</button>${qtip('存下今天的知識網（資料＋圖片）。每天第一次打開也會自動存資料。')}</div>
+  openPane('回顧', tabsRow('tm') + `<div class="row"><input type="text" id="tmname" placeholder="名稱（可不填）" style="flex:1;min-width:0"><button class="go" id="tmsave">現在保存一張</button>${qtip('存下今天的知識網（資料＋圖片）。每天第一次打開也會自動存資料。')}</div>
    ${days.length ? `<div class="ksec">以前的知識網</div><div class="kgrid">${days.map(x => `<div class="kc" tabindex="0" data-d="${E(x)}"><div class="t">${E(x.slice(0, 10))}</div><div class="s">${E(x.slice(11) || '自動存')}</div>${pics.has(x) ? '<span class="kchip">有圖片</span>' : ''}</div>`).join('')}</div>` : '<p class="kempty">還沒有存過。</p>'}`);
   bindTabs();
-  pbody.querySelector('#tmsave').onclick = async () => { const nm = pbody.querySelector('#tmname').value.trim(); KN.closePane(); await new Promise(r => setTimeout(r, 400)); await tmSave(true, nm); toast('已存今天的知識網'); };
+  pbody.querySelector('#tmsave').onclick = async () => { const nm = pbody.querySelector('#tmname').value.trim(); KN.closePane(); await new Promise(r => setTimeout(r, 400)); await tmSave(true, nm); toast('已保存今天的知識網'); };
   pbody.querySelectorAll('[data-d]').forEach(b => b.onclick = () => tmView(b.dataset.d, pics.has(b.dataset.d)));
 }
 async function tmView(day, pic) {
