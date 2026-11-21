@@ -93,18 +93,20 @@ function syncNow(manual) {
       const q = id => encodeURIComponent(`'${id}' in parents and trashed=false`);
       try { list = J(await call('GET', `${API}/files?q=${q(folder)}&fields=files(id,name,modifiedTime)&pageSize=1000&spaces=drive`)).files || []; }
       catch (e) { if (e.status !== 404) throw e; M.folder = null; M.mine = null; M.seen = {}; folder = await folderId(); list = []; }
-      let changed = 0;
+      let changed = 0; const bad = [];
       for (const f of list) {
         if (f.id === M.mine || !/\.knsync$/.test(f.name) || M.seen[f.id] === f.modifiedTime) continue;
-        const st = JSON.parse(dec.decode(await gz((await call('GET', `${API}/files/${f.id}?alt=media`)).body, true)));
+        const body = (await call('GET', `${API}/files/${f.id}?alt=media`)).body;
+        // 體檢 S3：這個檔解不開（壞掉的壓縮、格式不對）就略過，不讓整次同步卡住、這台的修改也照常上傳；沒記「看過」，下次會再試
+        let st; try { st = JSON.parse(dec.decode(await gz(body, true))); if (!st || typeof st !== 'object' || (st.files != null && typeof st.files !== 'object')) throw new Error('格式不對'); } catch (e) { console.warn(f.name, e); bad.push(f.name); continue; }
         if (st.device !== M.dev && st.files) changed += await applyRemote(st.files);
         M.seen[f.id] = f.modifiedTime; M.devices[f.id] = { label: st.label, at: st.at };
       }
       if (M.dirty || !M.mine) await push(folder);
-      M.last = Date.now(); M.err = ''; fails = 0; await saveM(true);
+      M.last = Date.now(); M.err = bad.length ? `有 ${bad.length} 個別台的同步檔讀不出來，先略過，其他照常同步（${bad[0]}）` : ''; fails = 0; await saveM(true);
       if (changed) refresh(changed);
-      if (manual) toast(changed ? `同步完成：從其他裝置收到 ${changed} 個修改` : '同步完成');
-      setDot('ok');
+      if (manual) toast((changed ? `同步完成：從其他裝置收到 ${changed} 個修改` : '同步完成') + (bad.length ? '；' + M.err : ''), bad.length ? 8000 : undefined);
+      setDot(bad.length ? 'err' : 'ok');
     } catch (e) {
       console.warn(e); M.err = msg(e); fails++; saveM(); setDot('err');
       if (manual || fails === 3) toast('同步沒成功：' + msg(e) + '（資料都還在這台，之後會自動再試）', 8000);
