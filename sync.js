@@ -144,21 +144,22 @@ async function autoBackup() {
 }
 async function restoreZip(buf) {
   const all = await Z.unzip(new Uint8Array(buf)), top = /^(00-收件匣|02-知識|03-我的|04-知識網|05-衝突)\//;
-  let n = 0, skip = 0;
+  let n = 0, skip = 0, kept = 0;
   for (const f of all) {
     const p = f.path.replace(/^.*?(?=(00-收件匣|02-知識|03-我的|04-知識網|05-衝突)\/)/, '');
     if (!top.test(p) || p.split('/').some(s => s.startsWith('.') || s === '..')) { skip++; continue; }
     if (V.get(p) === f.text) continue;
     if (window.knHist && p.startsWith('02-知識/')) { const [d, nm] = await dirOf(p); await knHist(d, nm, f.text); }
-    await V.keep(p, f.text); await V.put(p, f.text); n++;
+    kept += await V.keep(p, f.text); await V.put(p, f.text); n++;
   }
-  return { n, skip, total: all.length };
+  return { n, skip, kept, total: all.length };
 }
 
 // ---------- 畫面：同步與備份 ----------
+let trashAll = false;   // 回收桶顯示全部（重開程式後回到最新 40 筆）
 window.knSyncPane = async function () {
   await V.ready;
-  const trash = V.trash().slice(0, 40), cf = (M.conflicts || []).filter(c => V.get(c.path) != null);
+  const trAll = V.trash(), trash = trashAll ? trAll : trAll.slice(0, 40), cf = (M.conflicts || []).filter(c => V.get(c.path) != null);
   const devs = Object.values(M.devices || {});
   openPane('同步與備份', `<div class="sy">
    <h4>Google 雲端硬碟同步</h4>
@@ -174,8 +175,8 @@ window.knSyncPane = async function () {
    <p class="note">完整備份是一個 .zip，裡面就是 Markdown 資料夾，任何電腦解壓縮就能看，也能用 Obsidian 打開。每週會自動備份一次（留最近 8 份）${N ? '，放在「文件＼知識網備份」' : '，放在「內部儲存空間／Documents／知識網備份」'}。上次自動備份：${ago(M.autoAt)}${M.autoErr ? `　<span class="bad">${E(M.autoErr)}</span>` : ''}</p>
    <div class="row"><button class="go sub" id="bexp">匯出完整備份</button><button class="go sub" id="bimp">從備份還原</button>${N ? '<button class="go sub" id="bold">匯入舊的知識網資料夾</button><button class="go sub" id="bdir">打開資料所在的資料夾</button>' : ''}</div>
    <p class="note">還原＝把備份裡的檔案放回來；現在有的不會被刪掉，被蓋掉的版本會先放進下面的回收桶。</p>
-   <h4>回收桶（${trash.length}）</h4>
-   ${trash.length ? trash.map((t, i) => `<div class="li"><span>${E(t.path.split('/').pop())}<small>${E(t.path)}・${ago(t.at)}${t.remote ? '・別台刪的' : ''}</small></span><button class="s" data-tr="${i}">救回</button></div>`).join('') : '<p class="note">沒有東西。刪掉的檔案會在這裡留 60 天。</p>'}
+   <h4>回收桶（${trAll.length}）</h4>
+   ${trash.length ? trash.map((t, i) => `<div class="li"><span>${E(t.path.split('/').pop())}<small>${E(t.path)}・${ago(t.at)}${t.remote ? '・別台刪的' : ''}</small></span><button class="s" data-tr="${i}">救回</button></div>`).join('') + (trash.length < trAll.length ? '<div class="row"><button class="go sub" id="trall">顯示全部</button></div>' : '') : '<p class="note">沒有東西。刪掉的檔案會在這裡留 60 天。</p>'}
   </div>`);
   const $ = s => pbody.querySelector(s), again = () => window.knSyncPane();
   const busy = (b, fn) => async () => { b.disabled = true; const t = b.textContent; b.textContent = '處理中…'; try { await fn(); } catch (e) { toast('沒成功：' + msg(e), 8000); } b.disabled = false; b.textContent = t; };
@@ -189,7 +190,7 @@ window.knSyncPane = async function () {
   if ($('#snow')) $('#snow').onclick = busy($('#snow'), async () => { await syncNow(true); again(); });
   if ($('#soff')) $('#soff').onclick = busy($('#soff'), async () => { if (!confirm('中斷連接後就不會再同步（這台的資料不會刪除）。確定嗎？')) return; await P.signOut().catch(() => {}); M.on = false; await saveM(true); setDot(); again(); });
   pbody.querySelectorAll('[data-cv]').forEach(b => b.onclick = () => { const c = cf[+b.dataset.cv]; openPane('另一個版本', `<div class="row"><button class="go sub" id="cback">← 回同步與備份</button></div><div class="src full">${KN.mdHtml(V.get(c.path) || '')}</div>`); pbody.querySelector('#cback').onclick = again; });
-  pbody.querySelectorAll('[data-cu]').forEach(b => b.onclick = busy(b, async () => { const c = cf[+b.dataset.cu]; const t = V.get(c.path); if (c.from.startsWith('02-知識/') && window.knHist) { const [d, n] = await dirOf(c.from); await knHist(d, n, t); } await V.put(c.from, t); await V.del(c.path); M.conflicts = M.conflicts.filter(x => x !== c); saveM(); await KN.load(true); toast('已改用這個版本'); again(); }));
+  pbody.querySelectorAll('[data-cu]').forEach(b => b.onclick = busy(b, async () => { const c = cf[+b.dataset.cu]; const t = V.get(c.path); if (c.from.startsWith('02-知識/') && window.knHist) { const [d, n] = await dirOf(c.from); await knHist(d, n, t); } await V.keep(c.from, t); await V.put(c.from, t); await V.del(c.path); M.conflicts = M.conflicts.filter(x => x !== c); saveM(); await KN.load(true); toast('已改用這個版本'); again(); }));
   pbody.querySelectorAll('[data-cd]').forEach(b => b.onclick = busy(b, async () => { const c = cf[+b.dataset.cd]; await V.del(c.path); M.conflicts = M.conflicts.filter(x => x !== c); saveM(); toast('已移到回收桶'); again(); }));
   pbody.querySelectorAll('[data-tr]').forEach(b => b.onclick = busy(b, async () => {
     const t = trash[+b.dataset.tr]; if (V.get(t.path) != null && !confirm('原本的位置已經有同名的檔案，要用回收桶裡的版本蓋過去嗎？（現在的版本會進回收桶）')) return;
@@ -199,15 +200,16 @@ window.knSyncPane = async function () {
   $('#bexp').onclick = busy($('#bexp'), async () => { const where = await saveZip(`知識網備份 ${stamp()}.zip`, await makeZip(), false); if (where) toast('已存好備份：' + where, 8000); });
   $('#bimp').onclick = () => {
     const inp = h('input', { type: 'file', accept: '.zip,application/zip' });
-    inp.onchange = busy($('#bimp'), async () => { const f = inp.files[0]; if (!f) return; const r = await restoreZip(await f.arrayBuffer()); await KN.load(true); toast(`還原完成：放回 ${r.n} 個檔案（備份裡共 ${r.total} 個）`, 8000); again(); });
+    inp.onchange = busy($('#bimp'), async () => { const f = inp.files[0]; if (!f) return; const r = await restoreZip(await f.arrayBuffer()); await KN.load(true); toast(`還原完成：放回 ${r.n} 個檔案（備份裡共 ${r.total} 個）${r.kept ? `，被蓋掉的 ${r.kept} 個舊版在回收桶` : ''}`, 8000); again(); });
     inp.click();
   };
   if ($('#bold')) $('#bold').onclick = busy($('#bold'), async () => {
     const L = await N.io.importFolder(); if (!L) return;
-    let n = 0; for (const f of L) { if (V.get(f.path) === f.text) continue; await V.keep(f.path, f.text); await V.put(f.path, f.text); n++; }
-    await KN.load(true); toast(n ? `已匯入 ${n} 個檔案` : '沒有新的東西要匯入（這個資料夾裡的東西都已經在了）', 8000); again();
+    let n = 0, kept = 0; for (const f of L) { if (V.get(f.path) === f.text) continue; kept += await V.keep(f.path, f.text); await V.put(f.path, f.text); n++; }
+    await KN.load(true); toast(n ? `已匯入 ${n} 個檔案${kept ? `，被蓋掉的 ${kept} 個舊版在回收桶` : ''}` : '沒有新的東西要匯入（這個資料夾裡的東西都已經在了）', 8000); again();
   });
   if ($('#bdir')) $('#bdir').onclick = () => N.io.openDataDir();
+  if ($('#trall')) $('#trall').onclick = () => { trashAll = true; again(); };
 };
 
 // ---------- 開始 ----------
