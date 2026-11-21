@@ -65,13 +65,16 @@ function others() {
 }
 function newest(k) { let best = null; for (const o of others()) { const g = o.groups[k]; if (g && g.v && (!best || g.at > best.at)) best = { ...g, label: o.label }; } return best; }
 function take(k, g) {
-  G[k].set(g.v); META[k] = { at: g.at, h: hash(JSON.stringify(G[k].get())) };
-  try { G[k].apply(g.v); } catch (e) { console.warn(e); }
+  if (!g.v || typeof g.v !== 'object') return false;   // 體檢 S4：格式不對的不收
+  const old = G[k].get();
+  G[k].set(g.v);
+  try { G[k].apply(g.v); } catch (e) { console.warn(e); G[k].set(old); try { G[k].apply(old); } catch (e2) {} return false; }   // 套用失敗：放回這台原本的設定
+  META[k] = { at: g.at, h: hash(JSON.stringify(G[k].get())) }; return true;
 }
 function pull(quiet) {
   check();   // 這台還沒記下的修改先記下，才比得出誰比較新
   const got = [];
-  Object.keys(G).forEach(k => { if (!ON[k]) return; const g = newest(k); if (g && (!META[k] || g.at > META[k].at)) { take(k, g); got.push(G[k].name); } });
+  Object.keys(G).forEach(k => { if (!ON[k]) return; const g = newest(k); if (g && (!META[k] || g.at > META[k].at) && take(k, g)) got.push(G[k].name); });
   if (got.length) { saveMeta(); writeMine(); if (!quiet) toast('已套用另一台的介面設定：' + got.join('、')); }
 }
 let pT = 0;

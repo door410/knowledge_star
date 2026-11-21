@@ -29,14 +29,15 @@ function fromOld(m) {   // 11/7 版的 menu2 { groups:[{name,items}], pins:[] }
 }
 const okSty = s => s && typeof s === 'object' && (s.fs || s.sz) ? { ...(s.fs ? { fs: +s.fs } : {}), ...(s.sz ? { sz: +s.sz } : {}) } : null;
 const okPos = p => p && /^[lr]$/.test(p.ax) && /^[tb]$/.test(p.ay) && isFinite(p.dx) && isFinite(p.dy);
+const obj = o => o && typeof o === 'object' && !Array.isArray(o) ? o : {}, arr = a => Array.isArray(a) ? a : [];   // 體檢 S4：別台或舊版的設定格式不對時當成沒有
 function normBar(raw) {
-  const b = Object.assign(clone(DEFBAR), raw || {}), seen = new Set();
+  const b = Object.assign(clone(DEFBAR), obj(raw)), seen = new Set();
   const ok = f => ITEMS[f] && !seen.has(f) && seen.add(f);
-  ['L', 'R'].forEach(s => { b[s] = (b[s] || []).filter(e => e && (e.g != null ? Array.isArray(e.items) : true)).map(e => e.g != null ? { g: String(e.g || '未命名'), items: e.items.filter(ok), ...(okSty(e.sty) ? { sty: okSty(e.sty) } : {}) } : e).filter(e => e.g != null || ok(e.f)); });
-  b.tray = (b.tray || []).filter(ok);
-  b.names = Object.fromEntries(Object.entries(b.names || {}).filter(([k, v]) => ITEMS[k] && v));
-  b.sty = Object.fromEntries(Object.entries(b.sty || {}).filter(([k, v]) => ITEMS[k] && okSty(v)).map(([k, v]) => [k, okSty(v)]));
-  b.free = Object.fromEntries(Object.entries(b.free || {}).filter(([k, v]) => ITEMS[k] && v && typeof v === 'object').map(([k, v]) => [k, Object.fromEntries(['n', 'w'].filter(d => okPos(v[d])).map(d => [d, v[d]]))]).filter(([, v]) => Object.keys(v).length));
+  ['L', 'R'].forEach(s => { b[s] = arr(b[s]).filter(e => e && (e.g != null ? Array.isArray(e.items) : true)).map(e => e.g != null ? { g: String(e.g || '未命名'), items: e.items.filter(ok), ...(okSty(e.sty) ? { sty: okSty(e.sty) } : {}) } : e).filter(e => e.g != null || ok(e.f)); });
+  b.tray = arr(b.tray).filter(ok);
+  b.names = Object.fromEntries(Object.entries(obj(b.names)).filter(([k, v]) => ITEMS[k] && typeof v === 'string' && v));
+  b.sty = Object.fromEntries(Object.entries(obj(b.sty)).filter(([k, v]) => ITEMS[k] && okSty(v)).map(([k, v]) => [k, okSty(v)]));
+  b.free = Object.fromEntries(Object.entries(obj(b.free)).filter(([k, v]) => ITEMS[k] && v && typeof v === 'object').map(([k, v]) => [k, Object.fromEntries(['n', 'w'].filter(d => okPos(v[d])).map(d => [d, v[d]]))]).filter(([, v]) => Object.keys(v).length));
   Object.keys(ITEMS).forEach(f => { if (seen.has(f)) return;   // 新加的功能：純粹瀏覽放進有「編輯版面」的那組，其他先收起來
     const g = f === 'pure' && [...b.L, ...b.R].find(e => e.items && e.items.includes('menu'));
     if (g) g.items.push(f); else b.tray.push(f); seen.add(f); });
@@ -44,12 +45,14 @@ function normBar(raw) {
   return b;
 }
 function normBot(raw) {
-  const b = Object.assign(clone(DEFBOT), raw || {});
-  b.slots = (b.slots || []).filter(s => s && ITEMS[s.f]).slice(0, 6).map(s => ({ f: s.f, ...(s.short ? { short: String(s.short).slice(0, 8) } : {}), ...(okSty(s) || {}) }));
+  const b = Object.assign(clone(DEFBOT), obj(raw));
+  b.slots = arr(b.slots).filter(s => s && ITEMS[s.f]).slice(0, 6).map(s => ({ f: s.f, ...(s.short ? { short: String(s.short).slice(0, 8) } : {}), ...(okSty(s) || {}) }));
   return b;
 }
-let BAR = normBar(store.get('bar', null) || (store.get('menu2', null) ? fromOld(store.get('menu2')) : null));
-let BOT = normBot(store.get('bottom', null));
+// 體檢 S4：存的設定壞掉（例如別台裝的是不同版本的 App）時，用預設的，不要讓按鈕列整個畫不出來
+const safeNorm = (fn, get) => { try { return fn(get()); } catch (e) { console.warn(e); return fn(null); } };
+let BAR = safeNorm(normBar, () => store.get('bar', null) || (store.get('menu2', null) ? fromOld(store.get('menu2')) : null));
+let BOT = safeNorm(normBot, () => store.get('bottom', null));
 const saveBar = () => store.set('bar', BAR), saveBot = () => store.set('bottom', BOT);
 const label = f => BAR.names[f] || ITEMS[f][0];
 const freeOf = f => BAR.free[f] && BAR.free[f][DEV()];
@@ -569,7 +572,7 @@ KN.fsz = {
 
 // ---------- 給別的檔案用 ----------
 KN.layout = { edit, done, pure, more: () => more(null), draw: drawBar, frameAdj,
-  reload() { BAR = normBar(store.get('bar', null)); BOT = normBot(store.get('bottom', null)); FSZ = Object.assign({}, FSZ0, store.get('fsz', {})); PP = store.get('panepos', {});
+  reload() { BAR = safeNorm(normBar, () => store.get('bar', null)); BOT = safeNorm(normBot, () => store.get('bottom', null)); FSZ = Object.assign({}, FSZ0, store.get('fsz', {})); PP = store.get('panepos', {});
     Object.keys(FOLD).forEach(k => delete FOLD[k]); Object.assign(FOLD, store.get('fold', {})); applyFsz(); applyPP(); drawBar(); folds(); },
   get pureOn() { return isPure(); } };
 applyFsz(); applyPP(); drawBar();
