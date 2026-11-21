@@ -188,11 +188,11 @@ async function tmView(day, pic) {
   KN.closePane(); TM = day;
   K.sources = o.sources; K.topics = o.topics; K.points = o.points; K.links = o.links; view.sel = null; card.hidden = true; build(); ui(); enterMode();
   let bar = document.getElementById('tmBar'); if (!bar) { bar = h('div', { id: 'tmBar' }); document.body.append(bar); }
-  bar.innerHTML = `<b>時光機：${day}</b><span>${o.points.length} 個知識點（現在 ${nowN}，多了 ${nowN - o.points.length}）</span>${pic ? '<button class="c" id="tmpic">看當天的圖</button>' : ''}<button class="c" id="tmcmp">跟現在比對</button><button class="c" id="tmback">回到現在</button>`;
+  bar.innerHTML = `<b>時光機：${E(day)}</b><span>${o.points.length} 個知識點（現在 ${nowN}，多了 ${nowN - o.points.length}）</span>${pic ? '<button class="c" id="tmpic">看當天的圖</button>' : ''}<button class="c" id="tmcmp">跟現在比對</button><button class="c" id="tmback">回到現在</button>`;
   bar.querySelector('#tmcmp').onclick = async () => { const ids = new Set(o.points.map(p => p.id)); TM = null; await KN.load(true);
     const now = KN.realPts(), nowIds = new Set(now.map(p => p.id)), added = now.filter(p => !ids.has(p.id)), gone = o.points.filter(p => !nowIds.has(p.id));
     KNX.glow = new Set(added.map(p => byId[p.id]).filter(Boolean)); dirty = true;
-    bar.innerHTML = `<b>和 ${day} 比對</b><span>之後新長的 ${added.length} 個（亮起來的）${gone.length ? '｜不見的：' + gone.slice(0, 8).map(p => E(p.name)).join('、') + (gone.length > 8 ? '…' : '') : ''}</span><button class="c" id="tmend">結束比對</button>`;
+    bar.innerHTML = `<b>和 ${E(day)} 比對</b><span>之後新長的 ${added.length} 個（亮起來的）${gone.length ? '｜不見的：' + gone.slice(0, 8).map(p => E(p.name)).join('、') + (gone.length > 8 ? '…' : '') : ''}</span><button class="c" id="tmend">結束比對</button>`;
     bar.querySelector('#tmend').onclick = () => { bar.remove(); KNX.glow = null; dirty = true; }; };
   bar.querySelector('#tmback').onclick = async () => { bar.remove(); TM = null; await KN.load(true); };
   if (pic) bar.querySelector('#tmpic').onclick = async () => { const f = await (await d.getFileHandle(day + '.png')).getFile(); window.open(URL.createObjectURL(f)); };

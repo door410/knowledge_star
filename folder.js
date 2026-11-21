@@ -319,7 +319,7 @@ async function inboxPane() {
    <div class="dact"><button class="go sub" id="dnew">＋知識點</button><button class="go sub" id="keep">先保存</button><button class="go sub" id="dclear">清空</button><button class="go" id="next"></button></div>
    ${items.length ? `<details class="ibx"${draft.text ? '' : ' open'}><summary>先存著的文章（${items.length}）</summary>
     ${tags.length ? `<div class="row">${tags.map(t => `<button class="go sub tg">${esc(t)}</button>`).join('')}</div>` : ''}
-    <div class="ibl">${items.map((it, i) => `<div class="ibi${draft.inbox === it.n ? ' on' : ''}" data-i="${i}"><input type="checkbox" class="pick"><a class="open"><b>${esc(it.title)}</b><small>${it.date}・${it.body.length} 字${it.tag ? '・' + esc(it.tag) : ''}${it.priv ? '・私人' : ''}</small></a></div>`).join('')}</div>
+    <div class="ibl">${items.map((it, i) => `<div class="ibi${draft.inbox === it.n ? ' on' : ''}" data-i="${i}"><input type="checkbox" class="pick"><a class="open"><b>${esc(it.title)}</b><small>${esc(it.date)}・${it.body.length} 字${it.tag ? '・' + esc(it.tag) : ''}${it.priv ? '・私人' : ''}</small></a></div>`).join('')}</div>
     <div class="row"><button class="go" id="multi" disabled>勾選的一起拆</button><button class="go sub" id="del" disabled>刪除勾選</button></div></details>` : ''}`);
   const T = pbody.querySelector('#dtitle'), X = pbody.querySelector('#dtext'), N = pbody.querySelector('#next');
   T.value = draft.title; X.value = draft.text; draft.priv = false;
