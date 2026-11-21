@@ -36,6 +36,9 @@ const conflictPath = (p, loserV) => {
   const d = new Date(vMs(loserV)), z = n => String(n).padStart(2, '0');
   return `05-衝突/${name}（另一個版本 ${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())} ${z(d.getHours())}.${z(d.getMinutes())} ${String(loserV).slice(-4)}）${ext}`;
 };
+// 別台送來的路徑只接受「資料夾裡的一般相對路徑」：不能有 ..、隱藏資料夾（.sync、.回收桶）、反斜線、磁碟代號、空段落、控制字元。
+// 否則 Android 版會寫到「知識網資料」外面、或蓋掉同步紀錄；Windows 版會因為路徑檢查失敗而每次同步都卡住。（體檢 11/21）
+const okPath = p => typeof p === 'string' && p.length > 0 && p.length < 1000 && !/[\\\u0000-\u001f]/.test(p) && !/^[A-Za-z]:/.test(p) && p.split('/').every(s => s && !s.startsWith('.'));
 /**
  * 把另一台的狀態合併進來。
  * local：{ path: {v,vv,k,del} }（本機版本表）；text(path)：本機內容；remote：{ path: {v,vv,k,del,t} }；dev：這台的代號
@@ -44,6 +47,7 @@ const conflictPath = (p, loserV) => {
 function merge(local, text, remote, clk, dev) {
   const acts = [], next = {};
   for (const p of Object.keys(remote)) {
+    if (!okPath(p)) continue;   // 體檢 11/21：別台送來的怪路徑不寫（見 okPath）
     const L = local[p], R = remote[p]; clk.see(R.v);
     const d = decide(L, R), meta = x => ({ v: x.v, vv: { ...(x.vv || {}) }, k: x.k, ...(x.del ? { del: 1 } : {}) });
     if (d === 'keep') continue;
@@ -60,6 +64,6 @@ function merge(local, text, remote, clk, dev) {
 }
 // 這台自己改了一個檔：新的版本
 const bump = (L, dev, clk, k, del) => { const vv = { ...((L && L.vv) || {}) }; vv[dev] = (vv[dev] || 0) + 1; return { v: clk.next(), vv, k, ...(del ? { del: 1 } : {}) }; };
-const core = { hash, clock, cmp, decide, merge, bump, conflictPath, vMs };
+const core = { hash, clock, cmp, decide, merge, bump, conflictPath, vMs, okPath };
 if (typeof module !== 'undefined' && module.exports) module.exports = core; else root.KNSyncCore = core;
 })(this);
