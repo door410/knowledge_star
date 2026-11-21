@@ -60,5 +60,35 @@
     return t.includes('\n## 我的想法\n' + v + '\n') && t.split('## 關聯').length === 2 ? 'ok' : '存下來的內容不對：' + JSON.stringify(t.slice(t.indexOf('## 原文出處')));
   });
 
+  await run('M3 回收桶超過 40 筆時標題是總數、可以顯示全部', async () => {
+    for (let i = 0; i < 45; i++) { await V.put(`03-我的/多${i}.md`, 'x' + i); await V.del(`03-我的/多${i}.md`); }
+    const total = V.trash().length;
+    await knSyncPane();
+    if (![...KN.pbody.querySelectorAll('h4')].some(x => x.textContent === `回收桶（${total}）`)) return '標題的數字不是總數（應該是 ' + total + '）';
+    const b = KN.pbody.querySelector('#trall'); if (!b) return '沒有「顯示全部」';
+    b.click(); await wait(800);
+    const n = KN.pbody.querySelectorAll('[data-tr]').length;
+    return n === total ? 'ok' : `顯示全部後只列了 ${n} 筆（共 ${total} 筆）`;
+  });
+
+  await run('S4 壞掉的按鈕列設定不會讓按鈕列畫不出來', async () => {
+    const pb = store.get('bar', null), pt = store.get('bottom', null);
+    store.set('bar', { L: 5, R: 'x', tray: {}, names: 'x' }); store.set('bottom', { slots: 'x' });
+    try { KN.layout.reload(); return 'ok'; } catch (e) { return '讀壞掉的設定時出錯：' + e.message; }
+    finally { store.set('bar', pb); store.set('bottom', pt); try { KN.layout.reload(); } catch (e) {} }
+  });
+
+  await run('檔名：「.」開頭的標題不會變成隱藏檔', async () => {
+    document.getElementById('addBtn').click(); await wait(1000);
+    const T = KN.pbody.querySelector('#dtitle'), X = KN.pbody.querySelector('#dtext'), K = KN.pbody.querySelector('#keep');
+    if (!T || !X || !K) return '測試本身出錯：沒看到丟東西的欄位';
+    T.value = '.NET 筆記'; T.dispatchEvent(new Event('input', { bubbles: true }));
+    X.value = '點開頭的標題'; X.dispatchEvent(new Event('input', { bubbles: true }));
+    K.click(); await wait(1500);
+    const all = V.list().filter(p => p.startsWith('00-收件匣/'));
+    if (all.some(p => p.endsWith('/NET 筆記.md'))) return 'ok';
+    return '沒存成看得到的檔名，收件匣裡有：' + JSON.stringify(all);
+  });
+
   return out;
 })()
