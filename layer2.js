@@ -328,7 +328,7 @@ window.openCard = openCard = function (p, tab = 'desc') {
     const v = B.querySelector('textarea').value.trim(), [dn, fn] = p._path.split('/');
     const dh = await (await KN.root.getDirectoryHandle('02-知識')).getDirectoryHandle(dn);
     let t = (await (await (await dh.getFileHandle(fn)).getFile()).text()).replace(/\r\n/g, '\n').replace(/\n## 我的想法\n[\s\S]*?(?=\n## |$)/, '');
-    if (v) { const sec = '\n## 我的想法\n' + v + '\n'; t = /\n## 關聯[ \t]*(?=\n|$)/.test(t) ? t.replace(/\n## 關聯[ \t]*(?=\n|$)/, sec + '\n## 關聯') : t.replace(/\s*$/, '\n') + sec; }
+    if (v) { const sec = '\n## 我的想法\n' + v + '\n'; t = /\n## 關聯[ \t]*(?=\n|$)/.test(t) ? t.replace(/\n## 關聯[ \t]*(?=\n|$)/, () => sec + '\n## 關聯') : t.replace(/\s*$/, '\n') + sec; }
     await KN.writeFile(dh, fn, t);
     const id = p.id; await KN.load(true); if (byId[id]) openCard(byId[id], 'mine'); toast('已保存想法');
   };
