@@ -48,6 +48,8 @@ ipcMain.handle('io:saveAs', async (e, name, bytes) => {
   fs.writeFileSync(r.filePath, Buffer.from(bytes)); return r.filePath;
 });
 ipcMain.handle('io:autoBackup', (_e, name, bytes) => {
+  // 只接受單純的「xxx.zip」：不能帶 / \ .. 或磁碟代號，否則畫面端可以把檔案寫到備份資料夾外面（體檢 11/21 M1）
+  if (typeof name !== 'string' || path.basename(name) !== name || !/^[^\\/:*?"<>|]+\.zip$/i.test(name)) throw new Error('不允許的備份檔名');
   fs.mkdirSync(BACKUP(), { recursive: true });
   fs.writeFileSync(path.join(BACKUP(), name), Buffer.from(bytes));
   const old = fs.readdirSync(BACKUP()).filter(n => n.startsWith('自動備份 ') && n.endsWith('.zip')).sort().reverse().slice(8);
