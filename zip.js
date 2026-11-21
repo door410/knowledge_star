@@ -7,9 +7,12 @@ const enc = new TextEncoder(), dec = new TextDecoder();
 function dosTime(d) { return [((d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1)) & 0xFFFF, (((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate()) & 0xFFFF]; }
 /** files：[{ path, text }] → Uint8Array（zip） */
 function zip(files) {
+  // 這個 zip 格式最多記 65,535 個檔、4 GB；超過時原本會默默少檔，現在明確報錯（體檢 11/21）
+  if (files.length > 0xFFFF) throw new Error(`檔案太多（${files.length} 個），超過備份格式上限 65,535 個，備份沒有完成`);
   const parts = [], cen = []; let off = 0; const [tm, dt] = dosTime(new Date());
   for (const f of files) {
     const name = enc.encode(f.path), data = enc.encode(f.text), crc = crc32(data);
+    if (off + 30 + name.length + data.length > 0xFFFFFFFF) throw new Error('資料超過 4 GB，超過備份格式上限，備份沒有完成');
     const h = new DataView(new ArrayBuffer(30));
     h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint16(8, 0, true);
     h.setUint16(10, tm, true); h.setUint16(12, dt, true); h.setUint32(14, crc, true); h.setUint32(18, data.length, true); h.setUint32(22, data.length, true);
