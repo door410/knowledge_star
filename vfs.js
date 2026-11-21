@@ -56,9 +56,12 @@ async function put(p, text, remote) {
   files.set(p, { text, mtime: Date.now() });
   if (!hidden(p)) hooks.forEach(f => f('put', p, text, remote, old ? old.text : null));
 }
+async function toTrash(p, text, remote) { const t = Date.now(); await putRaw(TRASH + t.toString(36) + Math.random().toString(36).slice(2, 6) + '.json', JSON.stringify({ path: p, text, at: t, remote: !!remote })); }
+// 要用 next 蓋掉 p 之前呼叫：現在的版本（不一樣時）先放進回收桶，蓋錯了還救得回來
+async function keep(p, next) { const old = files.get(p); if (old && old.text !== next && !hidden(p)) await toTrash(p, old.text); }
 async function del(p, remote) {
   const old = files.get(p); if (!old) return;
-  if (!hidden(p)) { const t = Date.now(); await putRaw(TRASH + t.toString(36) + Math.random().toString(36).slice(2, 6) + '.json', JSON.stringify({ path: p, text: old.text, at: t, remote: !!remote })); }
+  if (!hidden(p)) await toTrash(p, old.text, remote);
   await serial(() => driver.remove(p));
   files.delete(p);
   if (!hidden(p)) hooks.forEach(f => f('del', p, null, remote, old.text));
@@ -146,7 +149,7 @@ async function rescan() {
 }
 
 window.KNVFS = {
-  root: new DirH(''), ready, put, del, rescan,
+  root: new DirH(''), ready, put, del, keep, rescan,
   onChange: f => hooks.push(f),
   list: () => [...files.keys()].filter(p => !hidden(p)),
   get: p => (files.get(p) || {}).text,

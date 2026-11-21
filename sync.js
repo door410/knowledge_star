@@ -148,7 +148,7 @@ async function restoreZip(buf) {
     if (!top.test(p) || p.split('/').some(s => s.startsWith('.') || s === '..')) { skip++; continue; }
     if (V.get(p) === f.text) continue;
     if (window.knHist && p.startsWith('02-知識/')) { const [d, nm] = await dirOf(p); await knHist(d, nm, f.text); }
-    await V.put(p, f.text); n++;
+    await V.keep(p, f.text); await V.put(p, f.text); n++;
   }
   return { n, skip, total: all.length };
 }
@@ -171,7 +171,7 @@ window.knSyncPane = async function () {
    <h4>備份</h4>
    <p class="note">完整備份是一個 .zip，裡面就是 Markdown 資料夾，任何電腦解壓縮就能看，也能用 Obsidian 打開。每週會自動備份一次（留最近 8 份）${N ? '，放在「文件＼知識網備份」' : '，放在「內部儲存空間／Documents／知識網備份」'}。上次自動備份：${ago(M.autoAt)}${M.autoErr ? `　<span class="bad">${E(M.autoErr)}</span>` : ''}</p>
    <div class="row"><button class="go sub" id="bexp">匯出完整備份</button><button class="go sub" id="bimp">從備份還原</button>${N ? '<button class="go sub" id="bold">匯入舊的知識網資料夾</button><button class="go sub" id="bdir">打開資料所在的資料夾</button>' : ''}</div>
-   <p class="note">還原＝把備份裡的檔案放回來；現在有的不會被刪掉，被蓋掉的內容在「紀錄與復原」救得回來。</p>
+   <p class="note">還原＝把備份裡的檔案放回來；現在有的不會被刪掉，被蓋掉的版本會先放進下面的回收桶。</p>
    <h4>回收桶（${trash.length}）</h4>
    ${trash.length ? trash.map((t, i) => `<div class="li"><span>${E(t.path.split('/').pop())}<small>${E(t.path)}・${ago(t.at)}${t.remote ? '・別台刪的' : ''}</small></span><button class="s" data-tr="${i}">救回</button></div>`).join('') : '<p class="note">沒有東西。刪掉的檔案會在這裡留 60 天。</p>'}
   </div>`);
@@ -192,7 +192,7 @@ window.knSyncPane = async function () {
   pbody.querySelectorAll('[data-tr]').forEach(b => b.onclick = busy(b, async () => {
     const t = trash[+b.dataset.tr]; if (V.get(t.path) != null && !confirm('原本的位置已經有同名的檔案，要用回收桶裡的版本蓋過去嗎？（現在的版本會進回收桶）')) return;
     if (window.knHist && t.path.startsWith('02-知識/')) { const [d, n] = await dirOf(t.path); await knHist(d, n, t.text); }
-    await V.put(t.path, t.text); await V.raw.del(t.key); await KN.load(true); toast('已救回：' + t.path.split('/').pop()); again();
+    await V.keep(t.path, t.text); await V.put(t.path, t.text); await V.raw.del(t.key); await KN.load(true); toast('已救回：' + t.path.split('/').pop()); again();
   }));
   $('#bexp').onclick = busy($('#bexp'), async () => { const where = await saveZip(`知識網備份 ${stamp()}.zip`, await makeZip(), false); if (where) toast('已存好備份：' + where, 8000); });
   $('#bimp').onclick = () => {
@@ -202,7 +202,7 @@ window.knSyncPane = async function () {
   };
   if ($('#bold')) $('#bold').onclick = busy($('#bold'), async () => {
     const L = await N.io.importFolder(); if (!L) return;
-    let n = 0; for (const f of L) { if (V.get(f.path) === f.text) continue; await V.put(f.path, f.text); n++; }
+    let n = 0; for (const f of L) { if (V.get(f.path) === f.text) continue; await V.keep(f.path, f.text); await V.put(f.path, f.text); n++; }
     await KN.load(true); toast(n ? `已匯入 ${n} 個檔案` : '沒有新的東西要匯入（這個資料夾裡的東西都已經在了）', 8000); again();
   });
   if ($('#bdir')) $('#bdir').onclick = () => N.io.openDataDir();
