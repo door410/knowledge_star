@@ -6,7 +6,7 @@ const FS_OK = 'showDirectoryPicker' in window || !!APP;
 const DIRS = ['00-收件匣', '02-知識', '03-我的', '04-知識網'];
 let root = null, sig = '', busy = false, paneOpen = false;
 const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
-const safe = s => String(s).replace(/[\\/:*?"<>|\r\n\t]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || '未命名';
+const safe = s => String(s).replace(/[\\/:*?"<>|\r\n\t]/g, ' ').replace(/\s+/g, ' ').trim().replace(/^[.\s]+/, '').slice(0, 80) || '未命名';   // 「.」開頭的名字會被當成隱藏檔（不顯示、不同步），所以拿掉開頭的點
 const h = (tag, attrs = {}, html = '') => { const e = document.createElement(tag); Object.assign(e, attrs); if (html) e.innerHTML = html; return e; };
 
 // ---------- 畫面元件 ----------
